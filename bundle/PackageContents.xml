@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage
+  SchemaVersion="1.0"
+  AppVersion="3.0.1"
+  ProductType="Application"
+  Name="IGI Tools"
+  Description="IGI Tools — AutoLISP and Python utilities for AutoCAD / Civil 3D (CADPyRx)"
+  Author="Maxim Myslivets"
+  ProductCode="{E1333436-1EF7-43B6-AE8C-B9B646519E6C}"
+  UpgradeCode="{A7C91F2E-4B58-4D0A-9E33-1F8C2D6A0B11}">
+
+  <CompanyDetails
+    Name="IGI Tools"
+    Url="https://github.com/maxmyslivets/IGI-Tools"
+    Email="MaxMyslivets.Work@gmail.com" />
+
+  <!-- Shared: LISP loader + CUIX (all supported series) -->
+  <Components Description="Shared LISP and UI">
+    <RuntimeRequirements
+      OS="Win64"
+      Platform="AutoCAD*|Civil3D*"
+      SeriesMin="R24.1"
+      SeriesMax="R26.0"
+      SupportPath="./Contents/Python/;./Contents/Lisp/" />
+
+    <ComponentEntry
+      AppName="IGI Tools LISP Loader"
+      AppDescription="Loads AutoLISP / VLX scripts from the bundle"
+      ModuleName="./Contents/Lisp/IGIToolsLoader.lsp"
+      LoadOnAutoCADStartup="True" />
+
+    <ComponentEntry
+      AppName="IGI Tools Partial CUIX"
+      AppDescription="Ribbon / menus for IGI Tools"
+      ModuleName="./Contents/Resources/igi_tools.cuix"
+      LoadOnAutoCADStartup="True" />
+  </Components>
+
+  <!-- AutoCAD / Civil 3D 2022 -->
+  <Components Description="PyRx Loader 2022">
+    <RuntimeRequirements
+      OS="Win64"
+      Platform="AutoCAD*|Civil3D*"
+      SeriesMin="R24.1"
+      SeriesMax="R24.1"
+      SupportPath="./Contents/Python/;./Contents/Lisp/" />
+    <ComponentEntry
+      AppName="IGI Tools PyRx 2022"
+      AppDescription="CADPyRx RxLoader for AutoCAD / Civil 3D 2022"
+      ModuleName="./Contents/runtime/Lib/site-packages/pyrx/RxLoader24.1.arx"
+      LoadOnAutoCADStartup="True" />
+  </Components>
+
+  <!-- AutoCAD / Civil 3D 2023 -->
+  <Components Description="PyRx Loader 2023">
+    <RuntimeRequirements
+      OS="Win64"
+      Platform="AutoCAD*|Civil3D*"
+      SeriesMin="R24.2"
+      SeriesMax="R24.2"
+      SupportPath="./Contents/Python/;./Contents/Lisp/" />
+    <ComponentEntry
+      AppName="IGI Tools PyRx 2023"
+      AppDescription="CADPyRx RxLoader for AutoCAD / Civil 3D 2023"
+      ModuleName="./Contents/runtime/Lib/site-packages/pyrx/RxLoader24.2.arx"
+      LoadOnAutoCADStartup="True" />
+  </Components>
+
+  <!-- AutoCAD / Civil 3D 2024 -->
+  <Components Description="PyRx Loader 2024">
+    <RuntimeRequirements
+      OS="Win64"
+      Platform="AutoCAD*|Civil3D*"
+      SeriesMin="R24.3"
+      SeriesMax="R24.3"
+      SupportPath="./Contents/Python/;./Contents/Lisp/" />
+    <ComponentEntry
+      AppName="IGI Tools PyRx 2024"
+      AppDescription="CADPyRx RxLoader for AutoCAD / Civil 3D 2024"
+      ModuleName="./Contents/runtime/Lib/site-packages/pyrx/RxLoader24.3.arx"
+      LoadOnAutoCADStartup="True" />
+  </Components>
+
+  <!-- AutoCAD / Civil 3D 2025 -->
+  <Components Description="PyRx Loader 2025">
+    <RuntimeRequirements
+      OS="Win64"
+      Platform="AutoCAD*|Civil3D*"
+      SeriesMin="R25.0"
+      SeriesMax="R25.0"
+      SupportPath="./Contents/Python/;./Contents/Lisp/" />
+    <ComponentEntry
+      AppName="IGI Tools PyRx 2025"
+      AppDescription="CADPyRx RxLoader for AutoCAD / Civil 3D 2025"
+      ModuleName="./Contents/runtime/Lib/site-packages/pyrx/RxLoader25.0.arx"
+      LoadOnAutoCADStartup="True" />
+  </Components>
+
+  <!-- AutoCAD / Civil 3D 2026 -->
+  <Components Description="PyRx Loader 2026">
+    <RuntimeRequirements
+      OS="Win64"
+      Platform="AutoCAD*|Civil3D*"
+      SeriesMin="R25.1"
+      SeriesMax="R25.1"
+      SupportPath="./Contents/Python/;./Contents/Lisp/" />
+    <ComponentEntry
+      AppName="IGI Tools PyRx 2026"
+      AppDescription="CADPyRx RxLoader for AutoCAD / Civil 3D 2026"
+      ModuleName="./Contents/runtime/Lib/site-packages/pyrx/RxLoader25.1.arx"
+      LoadOnAutoCADStartup="True" />
+  </Components>
+
+  <!-- AutoCAD / Civil 3D 2027 -->
+  <Components Description="PyRx Loader 2027">
+    <RuntimeRequirements
+      OS="Win64"
+      Platform="AutoCAD*|Civil3D*"
+      SeriesMin="R26.0"
+      SeriesMax="R26.0"
+      SupportPath="./Contents/Python/;./Contents/Lisp/" />
+    <ComponentEntry
+      AppName="IGI Tools PyRx 2027"
+      AppDescription="CADPyRx RxLoader for AutoCAD / Civil 3D 2027"
+      ModuleName="./Contents/runtime/Lib/site-packages/pyrx/RxLoader26.0.arx"
+      LoadOnAutoCADStartup="True" />
+  </Components>
+
+</ApplicationPackage>

@@ -1,0 +1,33 @@
+# Local CADPyRx / Python runtime (assembled on the machine, not versioned)
+python-embed/
+
+# Build outputs
+dist/
+installer/*.exe
+installer/Output/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.vs/
+.vscode/
+*.user
+*.suo
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Legacy .NET scaffolding (removed; ignore if residual)
+src/
+.tasks/
+.veai/
+Makefile
