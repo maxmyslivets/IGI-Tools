@@ -21,7 +21,8 @@ def OnPyInitApp() -> None:
         ver = get_installed_version()
         print(
             f"\n[IGI Tools] v{ver} — Python commands loaded "
-            "(IGI_DRAW_NOMENCLATURE, IGI_GZU_FROM_GEOJSON, IGI_CHECK_UPDATE)."
+            "(IGI_DRAW_NOMENCLATURE, IGI_GZU_FROM_GEOJSON, IGI_LOAD_TEMPLATE, "
+            "IGI_RESET_TEMPLATE, IGI_CHECK_UPDATE)."
         )
         schedule_update_check()
     except Exception:

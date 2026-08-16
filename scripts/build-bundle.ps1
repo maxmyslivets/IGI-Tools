@@ -42,6 +42,7 @@ $runtimeSrc = Join-Path $RepoRoot "python-embed"
 $lispSrc = Join-Path $RepoRoot "lisp"
 $pythonSrc = Join-Path $RepoRoot "python"
 $cuixSrc = Join-Path $RepoRoot "ui\igi_tools.cuix"
+$resourcesSrc = Join-Path $RepoRoot "resources"
 
 Write-Host "==> Building IGITools.bundle"
 Write-Host "    Repo: $RepoRoot"
@@ -57,6 +58,10 @@ if (-not $SkipRuntime -and -not (Test-Path $runtimeSrc)) {
 }
 if (-not (Test-Path $cuixSrc)) {
     throw "Missing CUIX: $cuixSrc"
+}
+$templateSrc = Join-Path $resourcesSrc "template.dwg"
+if (-not (Test-Path $templateSrc)) {
+    throw "Missing template: $templateSrc"
 }
 
 if (Test-Path $distBundle) {
@@ -115,8 +120,14 @@ Copy-Item (Join-Path $pythonSrc "igi_tools") (Join-Path $pythonDest "igi_tools")
 Get-ChildItem $pythonDest -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue |
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
-# CUIX
+# CUIX + resources (template.dwg и пр.)
 Copy-Item $cuixSrc (Join-Path $resDest "igi_tools.cuix") -Force
+Get-ChildItem $resourcesSrc -File | ForEach-Object {
+    Copy-Item $_.FullName (Join-Path $resDest $_.Name) -Force
+}
+# Заводская копия: IGI_RESET_TEMPLATE и эталон при обновлении плагина
+Copy-Item (Join-Path $resDest "template.dwg") (Join-Path $resDest "template.default.dwg") -Force
+
 
 # Embedded Python + CADPyRx
 if (-not $SkipRuntime) {

@@ -11,7 +11,7 @@ IGITools.bundle/
     runtime/                   # python-embed + site-packages (cad-pyrx)
     Lisp/                      # *.lsp, *.vlx + IGIToolsLoader.lsp
     Python/                    # pyrx_onload.py + пакет igi_tools
-    Resources/igi_tools.cuix
+    Resources/                 # igi_tools.cuix, template.dwg, template.default.dwg
 ```
 
 При старте CAD:

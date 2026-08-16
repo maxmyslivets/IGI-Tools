@@ -118,6 +118,21 @@ if (-not (Test-Path $TargetRoot)) {
     New-Item -ItemType Directory -Force -Path $TargetRoot | Out-Null
 }
 
+# Preserve user active template across non-junction deploys.
+# template.default.dwg не сохраняем — всегда берётся из новой сборки (эталон для RESET).
+$preservedTemplates = @{}
+if ((Test-Path $targetBundle) -and -not $Junction) {
+    foreach ($name in @("template.dwg", "template.dwg.bak")) {
+        $src = Join-Path $targetBundle "Contents\Resources\$name"
+        if (Test-Path $src) {
+            $tmp = Join-Path $env:TEMP ("igi-preserve-" + [guid]::NewGuid().ToString("N") + "-$name")
+            Copy-Item -LiteralPath $src -Destination $tmp -Force
+            $preservedTemplates[$name] = $tmp
+            Write-Host "    Preserving $name for restore after deploy"
+        }
+    }
+}
+
 if (Test-Path $targetBundle) {
     Write-Host "    Removing existing $targetBundle"
     Assert-BundleNotLocked -BundlePath $targetBundle
@@ -142,6 +157,17 @@ else {
     ) -Wait -PassThru -NoNewWindow
     if ($rc.ExitCode -ge 8) {
         throw "robocopy deploy failed with exit code $($rc.ExitCode)"
+    }
+
+    if ($preservedTemplates.Count -gt 0) {
+        $resDir = Join-Path $targetBundle "Contents\Resources"
+        New-Item -ItemType Directory -Force -Path $resDir | Out-Null
+        foreach ($name in $preservedTemplates.Keys) {
+            $dest = Join-Path $resDir $name
+            Copy-Item -LiteralPath $preservedTemplates[$name] -Destination $dest -Force
+            Remove-Item -LiteralPath $preservedTemplates[$name] -Force -ErrorAction SilentlyContinue
+            Write-Host "    Restored $name"
+        }
     }
 }
 

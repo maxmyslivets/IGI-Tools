@@ -16,13 +16,13 @@ from pathlib import Path
 
 from pyrx import Db, Ed, Ge, command
 
+from igi_tools.paths import get_template_path
+
 BLOCK_NAME = "СП_1.5"
 BLOCK_COLOR = 3
 BLOCK_SCALE = 0.5
 POLYLINE_COLOR = 3
 LAYER_NAME = "0"
-
-_TEMPLATE_PATH = Path(__file__).resolve().parent / "template.dwg"
 
 
 # ---------------------------------------------------------------------------
@@ -174,20 +174,21 @@ def _get_block_id(db: Db.Database, block_name: str) -> Db.ObjectId | None:
 
 def _import_block_from_template(db: Db.Database) -> Db.ObjectId:
     """Импортировать определение «СП_1.5» из template.dwg через wblockCloneObjects."""
-    if not _TEMPLATE_PATH.is_file():
+    template_path = get_template_path()
+    if not template_path.is_file():
         raise BlockUnavailableError(
-            f"Шаблон не найден:\n{_TEMPLATE_PATH}\n\n"
+            f"Шаблон не найден:\n{template_path}\n\n"
             f"Нужен template.dwg с блоком «{BLOCK_NAME}», "
             f"либо блок уже должен быть в текущем чертеже."
         )
 
-    src = _load_template_database(_TEMPLATE_PATH)
+    src = _load_template_database(template_path)
 
     src_bt = Db.BlockTable(src.blockTableId(), Db.OpenMode.kForRead)
     try:
         if not src_bt.has(BLOCK_NAME):
             raise BlockUnavailableError(
-                f"В шаблоне нет блока «{BLOCK_NAME}»:\n{_TEMPLATE_PATH}"
+                f"В шаблоне нет блока «{BLOCK_NAME}»:\n{template_path}"
             )
         src_id = src_bt.getAt(BLOCK_NAME)
     finally:
@@ -208,7 +209,7 @@ def _import_block_from_template(db: Db.Database) -> Db.ObjectId:
     block_id = _get_block_id(db, BLOCK_NAME)
     if block_id is None:
         raise BlockUnavailableError(
-            f"Не удалось импортировать блок «{BLOCK_NAME}» из шаблона:\n{_TEMPLATE_PATH}"
+            f"Не удалось импортировать блок «{BLOCK_NAME}» из шаблона:\n{template_path}"
         )
     return block_id
 

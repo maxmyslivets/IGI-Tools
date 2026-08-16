@@ -40,9 +40,23 @@ InfoAfterFile=
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
+[CustomMessages]
+russian.UpdateTemplateTask=Обновить активный шаблон DWG (template.dwg) из дистрибутива
+english.UpdateTemplateTask=Update the active DWG template (template.dwg) from the package
+
+[Tasks]
+; Показывается только если template.dwg уже есть. По умолчанию включено
+; (в [Tasks] нет флага checked — задача checked по умолчанию; unchecked/checkedonce).
+Name: updatetemplate; Description: "{cm:UpdateTemplateTask}"; \
+  Check: ExistingTemplateExists
+
 [Files]
-; Assembled bundle produced by scripts\build-bundle.ps1
-Source: "..\dist\IGITools.bundle\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion createallsubdirs
+; Assembled bundle produced by scripts\build-bundle.ps1.
+; template.dwg — активный шаблон: при обновлении только по задаче.
+; template.default.dwg — заводской эталон: всегда обновляется с дистрибутивом
+;   (из него IGI_RESET_TEMPLATE восстанавливает template.dwg).
+Source: "..\dist\IGITools.bundle\*"; DestDir: "{app}"; Excludes: "Contents\Resources\template.dwg"; Flags: recursesubdirs ignoreversion createallsubdirs
+Source: "..\dist\IGITools.bundle\Contents\Resources\template.dwg"; DestDir: "{app}\Contents\Resources"; Flags: ignoreversion; Check: ShouldInstallTemplate
 
 [Icons]
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
@@ -51,6 +65,25 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 function GetBundlePath(Param: string): string;
 begin
   Result := ExpandConstant('{commonpf64}') + '\Autodesk\ApplicationPlugins\{#MyBundleName}';
+end;
+
+function GetTemplatePath: string;
+begin
+  Result := ExpandConstant('{app}\Contents\Resources\template.dwg');
+end;
+
+function ExistingTemplateExists: Boolean;
+begin
+  Result := FileExists(GetTemplatePath());
+end;
+
+function ShouldInstallTemplate: Boolean;
+begin
+  { Первая установка — всегда; при наличии файла — только если выбрана задача. }
+  if not ExistingTemplateExists then
+    Result := True
+  else
+    Result := WizardIsTaskSelected('updatetemplate');
 end;
 
 function InitializeSetup(): Boolean;
