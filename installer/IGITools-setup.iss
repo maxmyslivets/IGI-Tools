@@ -8,7 +8,10 @@
 ;   2. Compile this script with Inno Setup 6+ (ISCC.exe)
 
 #define MyAppName "IGI Tools for AutoCAD"
-#define MyAppVersion "3.0.0"
+; Prefer /DMyAppVersion=… from build-installer.ps1 (CLI define must not be overwritten).
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0"
+#endif
 #define MyAppPublisher "IGI"
 #define MyAppURL "https://igi.ru/"
 #define MyBundleName "IGITools.bundle"
