@@ -17,26 +17,22 @@
 ## Установка
 
 1. Закройте AutoCAD / Civil 3D.
-2. Запустите `IGITools-setup-1.0.0.exe` от имени администратора.
+2. Запустите `IGITools-setup-{VERSION}.exe` от имени администратора.
 3. Дождитесь копирования в `ApplicationPlugins\IGITools.bundle`.
 4. Запустите CAD заново.
 
 После старта в командной строке должны появиться сообщения `[IGI Tools]`.
+
+При наличии новой версии на [Releases](https://github.com/maxmyslivets/IGI-Tools/releases) плагин предложит обновление: скачает установщик и попросит закрыть AutoCAD / Civil 3D перед запуском.
 
 ## Проверка
 
 | Что проверить | Команда / действие |
 |---------------|-------------------|
 | CADPyRx загружен | `PYRXVER` или `PYRXLOADLOG` |
-| Python-утилита | `IGI_DRAW_NOMENCLATURE`, `IGI_GZU_FROM_GEOJSON` |
+| Python-утилита | например `IGI_DRAW_NOMENCLATURE`, `IGI_GZU_FROM_GEOJSON`, `IGI_CHECK_UPDATE` |
 | LISP | например `BlockFan`, `INTERP`, `FILLBLOCK`, `PODPORKA` |
-| Интерфейс | вкладка/панель из `igi_tools.cuix` (если настроена в CUIX) |
-
-### `IGI_GZU_FROM_GEOJSON`
-
-1. Введите `IGI_GZU_FROM_GEOJSON`.
-2. Выберите файл GeoJSON (стандартный или формат gismap.by).
-3. В модель добавляются замкнутые полилинии границ (слой `0`) и блоки «СП_1.5» в вершинах.
+| Интерфейс | вкладка/панель из `igi_tools.cuix` |
 
 ## Удаление
 
