@@ -85,6 +85,41 @@ def is_newer(remote: str, local: str) -> bool:
     return _parse_version(remote) > _parse_version(local)
 
 
+def _ssl_context() -> ssl.SSLContext:
+    """SSL-контекст для HTTPS из embedded Python (часто без CA bundle)."""
+    ctx = ssl.create_default_context()
+
+    try:
+        import certifi
+
+        ctx.load_verify_locations(certifi.where())
+        return ctx
+    except ImportError:
+        pass
+
+    here = Path(__file__).resolve()
+    for base in (here.parents[2], here.parents[3]):
+        pem = (
+            base
+            / "runtime"
+            / "Lib"
+            / "site-packages"
+            / "certifi"
+            / "cacert.pem"
+        )
+        if pem.is_file():
+            ctx.load_verify_locations(str(pem))
+            return ctx
+
+    if hasattr(ctx, "load_default_certs"):
+        try:
+            ctx.load_default_certs()
+        except ssl.SSLError:
+            pass
+
+    return ctx
+
+
 def _http_get_json(url: str, timeout: float = 15.0) -> dict:
     req = urllib.request.Request(
         url,
@@ -93,7 +128,7 @@ def _http_get_json(url: str, timeout: float = 15.0) -> dict:
             "Accept": "application/vnd.github+json",
         },
     )
-    ctx = ssl.create_default_context()
+    ctx = _ssl_context()
     with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
@@ -321,15 +356,24 @@ def _run_update_check(*, silent_if_current: bool) -> None:
 
                 wx.CallAfter(_show_http_err)
         except Exception as exc:
-            print(f"[IGI Tools] Проверка обновлений: {exc}")
+            err_text = str(exc)
+            if isinstance(exc, urllib.error.URLError) and "CERTIFICATE_VERIFY_FAILED" in err_text:
+                err_text = (
+                    f"{err_text}\n\n"
+                    "Не удалось проверить сертификат HTTPS (типично для "
+                    "python-embed без пакета certifi).\n"
+                    "Для разработчиков: pip install certifi в python-embed "
+                    "и пересоберите bundle."
+                )
+            print(f"[IGI Tools] Проверка обновлений: {err_text}")
             if not silent_if_current:
                 import wx
 
-                def _show_err() -> None:
+                def _show_err(message: str = err_text) -> None:
                     _acquire_ui()
                     try:
                         wx.MessageBox(
-                            f"Не удалось проверить обновления:\n{exc}",
+                            f"Не удалось проверить обновления:\n{message}",
                             "IGI Tools — обновление",
                             wx.OK | wx.ICON_WARNING,
                         )

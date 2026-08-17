@@ -112,8 +112,10 @@ make deploy-fast ARGS="-NoBump"
 4. Установите пакеты:
 
 ```powershell
-.\python-embed\python.exe -m pip install cad-pyrx
+.\python-embed\python.exe -m pip install cad-pyrx certifi
 ```
+
+`certifi` нужен для HTTPS (проверка обновлений через GitHub API); без него embedded Python часто падает с `CERTIFICATE_VERIFY_FAILED`.
 
 5. Проверьте наличие loaders:
 
