@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ApplicationPackage
   SchemaVersion="1.0"
-  AppVersion="3.1.2"
+  AppVersion="3.2.0"
   ProductType="Application"
   Name="IGI Tools"
   Description="IGI Tools — AutoLISP and Python utilities for AutoCAD / Civil 3D (CADPyRx)"
