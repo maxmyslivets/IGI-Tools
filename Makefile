@@ -11,8 +11,9 @@
 
 SCRIPT_DIR      := scripts
 BUILD_BUNDLE    := $(SCRIPT_DIR)/build-bundle.ps1
-DEPLOY_DEV      := $(SCRIPT_DIR)/deploy-dev.ps1
-BUILD_INSTALLER := $(SCRIPT_DIR)/build-installer.ps1
+DEPLOY_DEV       := $(SCRIPT_DIR)/deploy-dev.ps1
+BUILD_INSTALLER  := $(SCRIPT_DIR)/build-installer.ps1
+DEPLOY_COMMANDS  := $(SCRIPT_DIR)/deploy-commands.ps1
 
 DIST_DIR        := dist
 DIST_BUNDLE     := $(DIST_DIR)/IGITools.bundle
@@ -36,7 +37,7 @@ endif
 .DEFAULT_GOAL := help
 
 .PHONY: help info all bundle bundle-fast deploy deploy-fast deploy-junction
-.PHONY: installer installer-fast clean version
+.PHONY: installer installer-fast clean version deploy-commands
 
 # ============================================================================
 # Targets
@@ -56,6 +57,7 @@ help:
 	@echo   make installer-fast    Installer без копирования runtime
 	@echo   make version           Показать VERSION
 	@echo   make clean             Удалить dist/
+	@echo   make deploy-commands   Обновить команды в установленном плагине
 	@echo   make info / help
 	@echo.
 	@echo Args (любые параметры скрипта):
@@ -123,3 +125,7 @@ installer-fast:
 ## clean — удалить dist/
 clean:
 	$(PS_CMD) "if (Test-Path '$(DIST_DIR)') { Remove-Item -Recurse -Force '$(DIST_DIR)'; Write-Host 'Removed $(DIST_DIR)/' } else { Write-Host 'Nothing to clean' }"
+
+## deploy-commands — обновить файлы команд в установленном плагине AutoCAD
+deploy-commands:
+	$(PS_FILE) $(DEPLOY_COMMANDS)
