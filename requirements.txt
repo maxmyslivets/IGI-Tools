@@ -1,3 +1,4 @@
 cad-pyrx
 certifi
 rasterio
+shapely
