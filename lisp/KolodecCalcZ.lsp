@@ -47,7 +47,8 @@
   )
 
   ;; Выбор блока пользователя
-  (if (setq ss (ssget "_+I" '((0 . "INSERT") (66 . 1))))
+  (if (and (setq ss (ssget "_I"))
+           (= (sslength ss) 1))
     (setq ent (ssname ss 0))
     (progn
       (princ "\nВыберите блок колодца с атрибутами: ")
@@ -94,15 +95,20 @@
                       (progn
                         (setq numVal (car parsed))   ;; Получаем число со знаком
                         (setq suffix (cdr parsed))   ;; Получаем текстовый хвостик
-                        
-                        ;; Складываем с базовым Z и преобразуем в строку с 2 знаками
-                        (setq newVal (rtos (+ zVal numVal) 2 2))
-                        ;; Склеиваем с исходным суффиксом
-                        (setq newVal (strcat newVal suffix))
-                        
-                        ;; Записываем обратно в блок
-                        (setq entData (subst (cons 1 newVal) (assoc 1 entData) entData))
-                        (entmod entData)
+
+                        ;; Проверка: если разница между Z и значением атрибута > 20, пропускаем
+                        (if (<= (abs numVal) 20)
+                          (progn
+                            ;; Складываем с базовым Z и преобразуем в строку с 2 знаками
+                            (setq newVal (rtos (+ zVal numVal) 2 2))
+                            ;; Склеиваем с исходным суффиксом
+                            (setq newVal (strcat newVal suffix))
+
+                            ;; Записываем обратно в блок
+                            (setq entData (subst (cons 1 newVal) (assoc 1 entData) entData))
+                            (entmod entData)
+                          )
+                        )
                       )
                     )
                   )
