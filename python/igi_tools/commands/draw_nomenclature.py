@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import math
+import traceback
 
-from pyrx import Db, Ge, command
-from pyrx.ed import prompt as ed_prompt
+from pyrx import Ap, Db, Ed, Ge, command
 
 GRID_SIZE = 250.0
 TEXT_HEIGHT = 20.0
@@ -207,32 +207,80 @@ def draw_cells(
     return len(cells)
 
 
-@command(name="IGI_DRAW_NOMENCLATURE")
+@command(name="IGI_DRAW_NOMENCLATURE", flags=Ap.CmdFlags.USEPICKSET | Ap.CmdFlags.REDRAW)
 def draw_nomenclature() -> None:
-    """Выбрать замкнутую полилинию и построить сетку номенклатуры 250×250."""
-    pl_id = ed_prompt.entsel(
-        "\nВыберите замкнутый полигон (полилинию): ",
-        eType=Db.Polyline,
-    )
-    pline = Db.Polyline(pl_id)
+    """Выбрать замкнутые полилинии и построить сетку номенклатуры 250×250."""
+    db = Db.curDb()
 
-    if not pline.isClosed():
-        print("\n[IGI Tools] Нужна замкнутая полилиния. Работа прервана.")
-        return
+    try:
+        # ── Step 1: entity selection ──
+        filter = [(Db.DxfCode.kDxfStart, "LWPOLYLINE")]
 
-    vertices = _vertex_xy(pline)
-    if len(vertices) < 3:
-        print("\n[IGI Tools] У полилинии меньше 3 вершин. Работа прервана.")
-        return
+        # Try implied selection (pre-selected objects) first
+        impl_status, impl_ss = Ed.Editor.selectImplied()
+        if impl_status == Ed.PromptStatus.eOk and impl_ss.size() > 0:
+            all_ids = impl_ss.toList()
+            oids = []
+            for oid in all_ids:
+                ent = Db.Entity(oid, Db.OpenMode.kForRead)
+                try:
+                    if ent.isDerivedFrom(Db.Polyline.desc()):
+                        oids.append(oid)
+                finally:
+                    ent.close()
+            if not oids:
+                print("[IGI Tools] Среди предварительно выбранных объектов нет полилиний.")
+                return
+            print(f"[IGI Tools] Найдено предварительно выбранных объектов: {len(oids)}.")
+        else:
+            # Fall back to prompt-based selection
+            print("\nВыберите замкнутые полилинии...")
+            res = Ed.Editor.select(filter)
+            if res[0] != Ed.PromptStatus.eOk:
+                print("[IGI Tools] Выбор отменён.")
+                return
 
-    minx, miny = min(v[0] for v in vertices), min(v[1] for v in vertices)
-    coordinate_system = detect_coordinate_system(minx, miny)
-    print(f"\n[IGI Tools] Система координат: {coordinate_system}")
+            ss = res[1]
+            if ss.size() == 0:
+                print("[IGI Tools] Объекты не найдены.")
+                return
+            oids = ss.toList()
 
-    cells = compute_cells(pline, vertices)
-    if not cells:
-        print("\n[IGI Tools] Внутри полигона нет ячеек сетки 250x250.")
-        return
+        # ── Step 2: process each polyline ──
+        total_cells = 0
+        coordinate_system = None
+        processed = 0
 
-    count = draw_cells(Db.curDb(), cells, coordinate_system)
-    print(f"\n[IGI Tools] Построено ячеек сетки: {count}.")
+        for oid in oids:
+            pline = Db.Polyline(oid, Db.OpenMode.kForRead)
+            try:
+                if not pline.isClosed():
+                    continue
+
+                vertices = _vertex_xy(pline)
+                if len(vertices) < 3:
+                    continue
+
+                if coordinate_system is None:
+                    minx, miny = min(v[0] for v in vertices), min(v[1] for v in vertices)
+                    coordinate_system = detect_coordinate_system(minx, miny)
+
+                cells = compute_cells(pline, vertices)
+                if cells:
+                    count = draw_cells(db, cells, coordinate_system)
+                    total_cells += count
+                    processed += 1
+            except Exception as exc:
+                print(f"[IGI Tools] Ошибка обработки полилинии: {exc}")
+            finally:
+                pline.close()
+
+        if coordinate_system is None:
+            print("[IGI Tools] Не найдено ни одной замкнутой полилинии.")
+            return
+
+        print(f"\n[IGI Tools] Обработано полигонов: {processed}, построено ячеек сетки: {total_cells}.")
+
+    except Exception:
+        traceback.print_exc()
+        print("[IGI Tools] Ошибка: команда прервана.")
