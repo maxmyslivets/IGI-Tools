@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 import math
 import traceback
 
@@ -397,6 +398,21 @@ def draw_nomenclature() -> None:
         processed = len(poly_data)
 
         print(f"\n[IGI Tools] Обработано полигонов: {processed}, построено ячеек сетки: {total_cells}.")
+
+        # ── Summary: grouped nomenclature list ──
+        if visible_set:
+            block_map: dict[str, list[int]] = defaultdict(list)
+            for x0, y0 in visible_set:
+                cx = x0 + GRID_SIZE / 2
+                cy = y0 + GRID_SIZE / 2
+                label = calculate_nomenclature(cx, cy)
+                block, _, sq_str = label.partition(";")
+                if sq_str:
+                    block_map[block].append(int(sq_str))
+            print(f"\n[IGI Tools] Номенклатуры:")
+            for block in sorted(block_map):
+                sqs = sorted(block_map[block])
+                print(f"{block};{','.join(f'{s:02d}' for s in sqs)}")
 
     except Exception:
         traceback.print_exc()
