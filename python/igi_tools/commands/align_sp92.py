@@ -1,9 +1,10 @@
-"""Выравнивание текста блоков СП_9.2, СП_6.5.2 вдоль опорной линии.
+"""Выравнивание текста блоков СП_9.2, СП_6.5.2 вдоль опорной кривой.
 
 Алгоритм:
-1. Выбор отрезков/полилиний/3D-полилиний и блоков одним набором.
-2. Для каждого блока — поиск ближайшего сегмента опорной кривой.
-3. Расчёт угла касательной сегмента.
+1. Выбор отрезков/полилиний и блоков одним набором.
+2. Для каждого блока — поиск ближайшей точки на опорной кривой через
+   Db.Curve.getClosestPointTo() + getParamAtPoint() + getFirstDeriv().
+3. Расчёт угла касательной в найденной точке.
 4. Нормализация угла для читаемости (вертикаль → "верх влево").
 5. Установка динамических свойств: Положение X=0, Положение Y=0, Угол1=угол.
 """
@@ -29,114 +30,51 @@ def _normalize_angle_readable(angle: float) -> float:
     Вертикальная линия (π/2) → текст читается снизу вверх, верх букв влево ("верх влево").
     """
     angle = angle % (2 * math.pi)
-    if angle < 0:
-        angle += 2 * math.pi
+    if angle > math.pi:
+        angle -= 2 * math.pi
 
     if angle > math.pi / 2:
         angle -= math.pi
-    elif angle <= -math.pi / 2:
+    elif angle < -math.pi / 2:
         angle += math.pi
 
     return angle
 
 
-def _project_onto_segment(
-    pt: Ge.Point3d, s0: Ge.Point3d, s1: Ge.Point3d,
-) -> tuple[Ge.Point3d, float, float]:
-    """Проецирование точки на отрезок.
+def _get_curve_tangent_at_point(curve: Db.Curve, pt: Ge.Point3d) -> tuple[float | None, float]:
+    """Найти расстояние от точки до кривой и угол касательной.
 
-    Возвращает (точка_проекции, параметр_t [0..1], квадрат_расстояния).
+    Возвращает (угол_касательной, квадрат_расстояния).
+    Если точка вне порога 0.01 — (None, dist_sq).
     """
-    dx = s1.x - s0.x
-    dy = s1.y - s0.y
-    dz = s1.z - s0.z
-    seg_len_sq = dx * dx + dy * dy + dz * dz
+    TOLERANCE_SQ = 0.0001
 
-    if seg_len_sq < 1e-12:
-        dp = pt - s0
-        return s0, 0.0, dp.x * dp.x + dp.y * dp.y + dp.z * dp.z
+    try:
+        closest = curve.getClosestPointTo(pt)
+    except Exception:
+        return None, float("inf")
 
-    t = ((pt.x - s0.x) * dx + (pt.y - s0.y) * dy + (pt.z - s0.z) * dz) / seg_len_sq
-    t = max(0.0, min(1.0, t))
+    if closest is None:
+        return None, float("inf")
 
-    proj = Ge.Point3d(s0.x + t * dx, s0.y + t * dy, s0.z + t * dz)
-    dp = pt - proj
-    dist_sq = dp.x * dp.x + dp.y * dp.y + dp.z * dp.z
-    return proj, t, dist_sq
+    dx = pt.x - closest.x
+    dy = pt.y - closest.y
+    dist_sq = dx * dx + dy * dy
 
+    if dist_sq > TOLERANCE_SQ:
+        return None, dist_sq
 
-def _extract_segments(ent: Db.Entity) -> list[tuple[Ge.Point3d, Ge.Point3d, float, float]]:
-    """Извлечь отрезки из кривой.
+    try:
+        param = curve.getParamAtPoint(closest)
+        deriv = curve.getFirstDeriv(param)
+    except Exception:
+        return None, dist_sq
 
-    Возвращает список (start, end, seg_angle, seg_length_sq).
-    seg_angle = atan2(dy, dx) в плоскости XY.
-    """
-    segments: list[tuple[Ge.Point3d, Ge.Point3d, float, float]] = []
+    if deriv is None:
+        return None, dist_sq
 
-    if ent.isDerivedFrom(Db.Line.desc()):
-        line = Db.Line.cast(ent)
-        p0 = line.startPoint()
-        p1 = line.endPoint()
-        dx = p1.x - p0.x
-        dy = p1.y - p0.y
-        angle = math.atan2(dy, dx)
-        seg_len_sq = dx * dx + dy * dy
-        segments.append((p0, p1, angle, seg_len_sq))
-
-    elif ent.isDerivedFrom(Db.Polyline.desc()):
-        pline = Db.Polyline.cast(ent)
-        n = pline.numVerts()
-        pts = [pline.getPointAtParam(float(i)) for i in range(n)]
-        for i in range(n - 1):
-            dx = pts[i + 1].x - pts[i].x
-            dy = pts[i + 1].y - pts[i].y
-            angle = math.atan2(dy, dx)
-            seg_len_sq = dx * dx + dy * dy
-            segments.append((pts[i], pts[i + 1], angle, seg_len_sq))
-        if n >= 3 and pline.isClosed():
-            dx = pts[0].x - pts[-1].x
-            dy = pts[0].y - pts[-1].y
-            angle = math.atan2(dy, dx)
-            seg_len_sq = dx * dx + dy * dy
-            segments.append((pts[-1], pts[0], angle, seg_len_sq))
-
-    elif ent.isDerivedFrom(Db.Polyline3d.desc()):
-        pl3d = Db.Polyline3d.cast(ent)
-        pts = pl3d.toPoint3dList()
-        for i in range(len(pts) - 1):
-            dx = pts[i + 1].x - pts[i].x
-            dy = pts[i + 1].y - pts[i].y
-            angle = math.atan2(dy, dx)
-            seg_len_sq = dx * dx + dy * dy
-            segments.append((pts[i], pts[i + 1], angle, seg_len_sq))
-        # 3D polyline closure is not checked here — rarely closed in practice
-
-    return segments
-
-
-def _find_best_segment(
-    bref_pos: Ge.Point3d,
-    all_segments: list[tuple[Ge.Point3d, Ge.Point3d, float, float]],
-) -> float | None:
-    """Найти ближайший к точке сегмент среди ВСЕХ кривых.
-
-    Возвращает угол для текста. Если блок дальше порога (10 ед.) — None."""
-    TOLERANCE_SQ = 100.0  # 10^2 — блок дальше этой дистанции считается не на линии
-    best_dist_sq = float("inf")
-    best_angle = 0.0
-
-    for s0, s1, seg_angle, seg_len_sq in all_segments:
-        if seg_len_sq < 1e-12:
-            continue
-        _, _, dist_sq = _project_onto_segment(bref_pos, s0, s1)
-        if dist_sq < best_dist_sq:
-            best_dist_sq = dist_sq
-            best_angle = seg_angle
-
-    if best_dist_sq > TOLERANCE_SQ:
-        return None
-
-    return _normalize_angle_readable(best_angle)
+    tangent = math.atan2(deriv.y, deriv.x)
+    return tangent, dist_sq
 
 
 @command(name="IGI_ALIGN_SP92", flags=Ap.CmdFlags.USEPICKSET | Ap.CmdFlags.REDRAW)
@@ -188,11 +126,9 @@ def align_sp92() -> None:
                         block_count += 1
                     else:
                         skipped += 1
-                elif ent.isDerivedFrom(Db.Line.desc()) or ent.isDerivedFrom(Db.Polyline.desc()):
-                    # Db.Polyline covers both LWPOLYLINE and POLYLINE (2D)
-                    curve_ents.append(ent)
-                    curve_count += 1
-                elif ent.isDerivedFrom(Db.Polyline3d.desc()):
+                elif ent.isDerivedFrom(Db.Curve.desc()):
+                    # Db.Curve.desc() покрывает Line, Polyline, Polyline2d (PEDIT Fit/Spline),
+                    # Polyline3d, Arc, Spline и любые другие наследники AcDbCurve
                     curve_ents.append(ent)
                     curve_count += 1
                 else:
@@ -215,22 +151,7 @@ def align_sp92() -> None:
             f"блоков: {block_count}{total_skip_msg}."
         )
 
-        # ── Step 3: extract all curve segments into one flat list ──
-        all_segments: list[tuple[Ge.Point3d, Ge.Point3d, float, float]] = []
-        for ent in curve_ents:
-            try:
-                segs = _extract_segments(ent)
-                all_segments.extend(segs)
-            except Exception as exc:
-                print(f"[IGI Tools] Ошибка извлечения сегментов из кривой: {exc}")
-            finally:
-                ent.close()
-
-        if not all_segments:
-            print("[IGI Tools] Не удалось извлечь сегменты из опорных кривых.")
-            return
-
-        # ── Step 4: align each block to the closest segment globally ──
+        # ── Step 3: align each block to the closest curve ──
         processed = 0
         errors = 0
 
@@ -240,11 +161,27 @@ def align_sp92() -> None:
             try:
                 pos = bref.position()
 
-                text_angle = _find_best_segment(pos, all_segments)
-                if text_angle is None:
+                # Find closest curve and its tangent
+                best_angle: float | None = None
+                best_dist_sq = float("inf")
+
+                for curve_ent in curve_ents:
+                    try:
+                        curve = Db.Curve.cast(curve_ent)
+                        angle, dist_sq = _get_curve_tangent_at_point(curve, pos)
+                        if angle is not None and dist_sq < best_dist_sq:
+                            best_dist_sq = dist_sq
+                            best_angle = angle
+                    except Exception:
+                        continue
+
+                if best_angle is None:
+                    dist = math.sqrt(best_dist_sq)
                     print(f"[IGI Tools] Блок ({block_name}) на ("
-                          f"{pos.x:.2f}, {pos.y:.2f}) — не найден на опорных кривых.")
+                          f"{pos.x:.2f}, {pos.y:.2f}) — пропущен (расстояние {dist:.4f} > 0.01).")
                     continue
+
+                text_angle = _normalize_angle_readable(best_angle)
 
                 # Check dynamic status and collect properties in read mode
                 is_dyn = bref.isDynamicBlock()
@@ -277,6 +214,13 @@ def align_sp92() -> None:
                 errors += 1
             finally:
                 bref.close()
+
+        # ── Step 4: close curves ──
+        for curve_ent in curve_ents:
+            try:
+                curve_ent.close()
+            except Exception:
+                pass
 
         # ── Step 5: summary ──
         print(
