@@ -1,4 +1,4 @@
-(defun c:z2sp ( / ss i ent dxf insPt elev blkObj attribs attr layerName delAns lstToDel dynProps prop propName obj oldDimzin oldCmdecho ssDel Cobjs )
+(defun c:z2sp92 ( / ss i ent dxf insPt elev blkObj attribs attr layerName delAns lstToDel dynProps prop propName obj oldDimzin oldCmdecho ssDel Cobjs )
   (vl-load-com)
   
   ;; 1. Проверяем наличие целевого блока СП_9.2 в чертеже
@@ -147,5 +147,5 @@
   )
   (princ)
 )
-(princ "\nСкрипт очищен от нестандартных функций и готов. Команда: z2sp")
+(princ "\nСкрипт очищен от нестандартных функций и готов. Команда: z2sp92")
 (princ)
