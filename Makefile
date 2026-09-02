@@ -129,3 +129,9 @@ clean:
 ## deploy-commands — обновить файлы команд в установленном плагине AutoCAD
 deploy-commands:
 	$(PS_FILE) $(DEPLOY_COMMANDS)
+
+icons-convert:
+	$(PS_FILE) $(SCRIPT_DIR)/icons_convert.ps1
+
+icons-update:
+	$(PS_FILE) $(SCRIPT_DIR)/icons_update.ps1
