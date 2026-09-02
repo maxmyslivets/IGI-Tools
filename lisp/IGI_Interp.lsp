@@ -1,4 +1,4 @@
-(defun c:INTERP ( / ss i j ent1 ent2 obj1 obj2 bname1 bname2 valid-blocks sorted-blocks p1 p2 z1 z2 get-z dist delta z-start step-dir next-z t-val pt-contour pt-text idivip lines-count mode pt1 pt2 idx)
+(defun c:IGI_Interp ( / ss i j ent1 ent2 obj1 obj2 bname1 bname2 valid-blocks sorted-blocks p1 p2 z1 z2 get-z dist delta z-start step-dir next-z t-val pt-contour pt-text idivip lines-count mode pt1 pt2 idx)
   (vl-load-com)
   
   ;; Вспомогательная функция для извлечения значения атрибута Z

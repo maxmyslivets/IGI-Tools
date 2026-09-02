@@ -1,4 +1,4 @@
-(defun c:SP92ToPoints ( / ss i ent name effName insPt zAttr zVal pt count)
+(defun c:IGI_SP92ToPoints ( / ss i ent name effName insPt zAttr zVal pt count)
   (vl-load-com)
   ;; Выбираем все вхождения блоков (включая анонимные *U... для динамических блоков)
   (if (setq ss (ssget '((0 . "INSERT") (2 . "СП_9.2,`*U*"))))

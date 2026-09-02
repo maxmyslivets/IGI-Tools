@@ -3,7 +3,7 @@
   (setq *z2sp652-dist* 0.2) ; Значение по умолчанию при первом запуске
 )
 
-(defun c:z2sp652 ( / ss i ent dxf insPt elev obj layerName items pt1 pt2 item1 item2 tmpDist remItems
+(defun c:IGI_z2sp652 ( / ss i ent dxf insPt elev obj layerName items pt1 pt2 item1 item2 tmpDist remItems
                      paired used hObj zObj insertPt blkObj dynProps prop propName attribs attr
                      oldDimzin oldCmdecho ssDel Cobjs totalCreated lstToDel delAns )
   (vl-load-com)

@@ -1,6 +1,6 @@
 (vl-load-com)
 
-(defun c:BlockFan ( / ss i ent blockObj copyCount copiesToCreate basePoint j newObj newAngle )
+(defun c:IGI_BlockFan ( / ss i ent blockObj copyCount copiesToCreate basePoint j newObj newAngle )
   (vla-startundomark (vla-get-activedocument (vlax-get-acad-object)))
   
   (princ "\n--- Скрипт создания веера блоков запущен ---")

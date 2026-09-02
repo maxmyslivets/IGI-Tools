@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Background Grid Alignment Anchor (Transparent) -->
+  <rect width="32" height="32" fill="none"/>
+
+  <!-- BASE OBJECT: Enlarged Closed Polygon Path (P1 -> P2 -> P4 -> Loop) -->
+  <path d="M 5 27 L 11 4 L 27 8 Z" fill="none" stroke="#666666" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- Point 1 (5, 27) -->
+  <!-- Outer Triangle -->
+  <polygon points="5,23.5 8.5,29.5 1.5,29.5" fill="#D9D9D9" stroke="#666666" stroke-width="1" stroke-linejoin="round"/>
+  <!-- Inner Blue Core -->
+  <polygon points="5,26 6.5,28.5 3.5,28.5" fill="#89CBFA"/>
+
+  <!-- Point 2 (11, 4) -->
+  <!-- Outer Triangle -->
+  <polygon points="11,0.5 14.5,6.5 7.5,6.5" fill="#D9D9D9" stroke="#666666" stroke-width="1" stroke-linejoin="round"/>
+  <!-- Inner Blue Core -->
+  <polygon points="11,3 12.5,5.5 9.5,5.5" fill="#89CBFA"/>
+
+  <!-- Point 4 (27, 8) -->
+  <!-- Outer Triangle -->
+  <polygon points="27,4.5 30.5,10.5 23.5,10.5" fill="#D9D9D9" stroke="#666666" stroke-width="1" stroke-linejoin="round"/>
+  <!-- Inner Blue Core -->
+  <polygon points="27,7 28.5,9.5 25.5,9.5" fill="#89CBFA"/>
+
+  <!-- MODIFIER LAYER: Shorter Thin Arrow (No stroke, rotated to the right) -->
+  <path d="M 16 23 V 25 H 23 V 28 L 29 24 L 23 20 V 23 Z" fill="#89CBFA"/>
+</svg>

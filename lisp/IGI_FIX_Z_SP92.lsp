@@ -1,4 +1,4 @@
-(defun c:FIX_Z_SP92 ( / ss ssFiltered delta mode hFact hSet i ent vlaObj effName valStr valReal newReal precision)
+(defun c:IGI_FIX_Z_SP92 ( / ss ssFiltered delta mode hFact hSet i ent vlaObj effName valStr valReal newReal precision)
   (vl-load-com)
   (princ "\n=== Корректировка атрибута Z в блоках СП_9.2 ===")
   

@@ -1,4 +1,4 @@
-(defun c:PODPORKA ( / acadObj doc modelSpc sel1 ent1 obj1 sel2 ent2 obj2 len dist pt param deriv dx dy ang pClose distVal blk prop pName targetAng)
+(defun c:IGI_Podporka ( / acadObj doc modelSpc sel1 ent1 obj1 sel2 ent2 obj2 len dist pt param deriv dx dy ang pClose distVal blk prop pName targetAng)
   (vl-load-com)
   (setq acadObj (vlax-get-acad-object))
   (setq doc (vla-get-ActiveDocument acadObj))

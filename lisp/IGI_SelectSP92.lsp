@@ -1,4 +1,4 @@
-(defun c:SelectSP92 ( / *error* effName ssPre ssSelection ssResult i ent vlaObj curName )
+(defun c:IGI_SelectSP92 ( / *error* effName ssPre ssSelection ssResult i ent vlaObj curName )
   (vl-load-com)
   
   ;; Обработчик ошибок
