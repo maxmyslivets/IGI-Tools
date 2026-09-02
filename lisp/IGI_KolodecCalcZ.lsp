@@ -1,4 +1,4 @@
-(defun c:KolodecCalcZ ( / ss ent attr zVal attrList entData attrTag attrVal sign numStr suffix char i len numVal newVal parsed)
+(defun c:IGI_KolodecCalcZ ( / ss ent attr zVal attrList entData attrTag attrVal sign numStr suffix char i len numVal newVal parsed)
   (vl-load-com)
   
   ;; Вспомогательная функция парсинга строки по шаблону "минус(нет)-число-текст(нет)"
