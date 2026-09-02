@@ -1,4 +1,4 @@
-(defun c:SetLayerColors ( / acDoc layersObj layerList layName colVal layObj trueColorObj)
+(defun c:IGI_SetLayerColors ( / acDoc layersObj layerList layName colVal layObj trueColorObj)
   (vl-load-com)
   (setq acDoc (vla-get-ActiveDocument (vlax-get-acad-object)))
   (setq layersObj (vla-get-Layers acDoc))
