@@ -276,7 +276,3 @@ def unregister_reactor() -> None:
             pass
         _reactor = None
         print("[IGI Tools] ✓ Реактор СП_9.2 остановлен.")
-
-
-# авто-регистрация при импорте
-register_reactor()
