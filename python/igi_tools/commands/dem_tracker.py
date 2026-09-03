@@ -371,14 +371,6 @@ def dem_tracker():
 @command(name="IGI_DEM_TRACKER_SELECT_FILE")
 def dem_tracker_select_file():
     """Выбор нового GeoTIFF для активного мониторинга DEM."""
-    global tiff_monitor
-
-    if tiff_monitor is None:
-        print(
-            "\n[IGI Tools] Мониторинг не запущен. "
-            "Сначала выполните IGI_DEM_TRACKER."
-        )
-        return
 
     from pyrx import Ed
 
