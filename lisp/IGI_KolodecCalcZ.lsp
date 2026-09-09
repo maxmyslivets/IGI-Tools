@@ -1,14 +1,9 @@
-(defun c:IGI_KolodecCalcZ ( / ss ent attr zVal attrList entData attrTag attrVal sign numStr suffix char i len numVal newVal parsed *error* doc idx ssLen)
+(defun c:IGI_KolodecCalcZ ( / ss ent attr zVal attrList entData attrTag attrVal numVal newVal parsed *error* idx ssLen clean-str objAttr format-z-value)
   (vl-load-com)
-
-  ;; Ссылка на активный документ для управления отменой
-  (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
 
   ;; НАЧАЛО ОБРАБОТЧИКА ОШИБОК
   (setq *error* (lambda (msg)
-    (if (and doc (= (vla-get-ActiveUndoMechanism doc) 1))
-      (vla-EndUndoMark doc)
-    )
+    (command "_.UNDO" "_End")
     (if (not (member msg '("Function cancelled" "quit / exit abort")))
       (princ (strcat "\nОшибка: " msg))
     )
@@ -16,46 +11,54 @@
   ))
   ;; КОНЕЦ ОБРАБОТЧИКА ОШИБОК
 
-  ;; Вспомогательная функция парсинга строки по шаблону "минус(нет)-число-текст(нет)"
-  (defun parse-z-string (str / len i char sign numStr suffix state)
+  ;; Функция очистки только крайних пробелов всей исходной строки
+  (defun clean-str (str)
+    (vl-string-left-trim " " (vl-string-right-trim " " str))
+  )
+
+  ;; Вспомогательная функция парсинга строки.
+  ;; Возвращает список: (число_как_вещественное . (суффикс . исходная_строка_числа_для_подсчета_знаков))
+  (defun parse-z-string (str / len i testStr numVal suffix found lastChar)
+    (setq str (clean-str str))
     (setq len (strlen str)
-          i 1
-          sign 1
-          numStr ""
-          suffix ""
-          state 0 ;; 0 - знак/старт, 1 - сбор числа, 2 - сбор суффикса
-    )
-    (while (<= i len)
-      (setq char (substr str i 1))
-      (cond
-        ((= state 0)
-         (if (= char "-")
-           (setq sign -1 i (1+ i))
-         )
-         (setq state 1)
+          i len
+          found nil)
+    (while (and (> i 0) (not found))
+      (setq testStr (substr str 1 i))
+      (setq numVal (distof testStr))
+      (if numVal
+        (progn
+          (setq lastChar (substr testStr i 1))
+          (if (= lastChar " ")
+            (setq i (1- i))
+            (setq found t
+                  suffix (substr str (1+ i)))
+          )
         )
-        ((= state 1)
-         (if (wcmatch char "[0-9.]")
-           (progn
-             (setq numStr (strcat numStr char))
-             (setq i (1+ i))
-           )
-           (setq state 2)
-         )
-        )
-        ((= state 2)
-         (setq suffix (substr str i))
-         (setq i (1+ len))
-        )
+        (setq i (1- i))
       )
     )
-    (if (and numStr (/= numStr ""))
-      (cons (* sign (distof numStr)) suffix)
-      nil
+    ;; Теперь возвращаем еще и testStr (чистую строку числа до парсинга)
+    (if found (list numVal suffix testStr) nil)
+  )
+
+  ;; Функция динамического форматирования значения на основе исходной точности
+  (defun format-z-value (val origNumStr / dotPos precision)
+    (setq dotPos (vl-string-search "." origNumStr))
+    (if dotPos
+      ;; Считаем, сколько символов идет после точки
+      (setq precision (- (strlen origNumStr) dotPos 1))
+      ;; Если точки вообще не было (целое число), точность принимаем за 0
+      (setq precision 0)
+    )
+    ;; Если знаков меньше 2, принудительно выводим 2 знака. Иначе сохраняем исходную точность.
+    (if (< precision 2)
+      (rtos val 2 2)
+      (rtos val 2 precision)
     )
   )
 
-  ;; Выбор блоков пользователя (используем предварительный выбор или запрашиваем новый)
+  ;; Выбор блоков
   (if (not (setq ss (ssget "_I" '((0 . "INSERT") (66 . 1)))))
     (progn
       (princ "\nВыберите блоки колодцев с атрибутами: ")
@@ -65,43 +68,40 @@
 
   (if ss
     (progn
-      ;; ВКЛЮЧАЕМ МЕТКУ ОТМЕНЫ (одна общая на всю команду)
-      (vla-StartUndoMark doc)
+      (command "_.UNDO" "_BEgin")
 
-      (setq ssLen (sslength ss)
-            idx 0)
+      (setq ssLen (sslength ss) idx 0)
 
-      ;; Главный цикл по всем выбранным блокам
       (while (< idx ssLen)
         (setq ent (ssname ss idx)
               attr (entnext ent)
               zVal nil
               attrList '())
 
-        ;; Шаг 1: Ищем значение базовой отметки Z для текущего блока
+        ;; Шаг 1: Собираем атрибуты и ищем базовый Z
         (while (and attr (= (cdr (assoc 0 (entget attr))) "ATTRIB"))
-          (setq entData (entget attr))
-          (setq attrTag (strcase (cdr (assoc 2 entData))))
-          (setq attrVal (cdr (assoc 1 entData)))
+          (setq objAttr (vlax-ename->vla-object attr))
+          (setq attrTag (strcase (vla-get-TagString objAttr)))
+          (setq attrVal (vla-get-TextString objAttr))
 
           (if (= attrTag "Z")
             (setq zVal (distof attrVal))
           )
-          (setq attrList (cons (cons attrTag attr) attrList))
+
+          (setq attrList (cons (cons attrTag objAttr) attrList))
           (setq attr (entnext attr))
         )
 
-        ;; Шаг 2: Расчет и обновление Z1-Z4 для текущего блока
+        ;; Шаг 2: Расчет и обновление Z1-Z4
         (if zVal
           (progn
             (foreach item attrList
               (setq attrTag (car item))
-              (setq attr (cdr item))
+              (setq objAttr (cdr item))
 
               (if (member attrTag '("Z1" "Z2" "Z3" "Z4"))
                 (progn
-                  (setq entData (entget attr))
-                  (setq attrVal (cdr (assoc 1 entData)))
+                  (setq attrVal (vla-get-TextString objAttr))
 
                   (if (and attrVal (/= attrVal ""))
                     (progn
@@ -109,15 +109,20 @@
                       (if parsed
                         (progn
                           (setq numVal (car parsed))
-                          (setq suffix (cdr parsed))
+                          (setq suffix (cadr parsed))
+                          (setq origNumStr (caddr parsed)) ;; Исходная строка числа (например, "-2.485")
 
-                          ;; Проверка: если разница > 20, пропускаем
+                          ;; Проверка дельты (не более 20)
                           (if (<= (abs numVal) 20)
                             (progn
-                              (setq newVal (rtos (+ zVal numVal) 2 2))
+                              ;; Вычисляем новое значение
+                              (setq newVal (+ zVal numVal))
+                              ;; Форматируем число по правилу динамической точности
+                              (setq newVal (format-z-value newVal origNumStr))
+                              ;; Склеиваем с суффиксом (пробелы сохранены)
                               (setq newVal (strcat newVal suffix))
-                              (setq entData (subst (cons 1 newVal) (assoc 1 entData) entData))
-                              (entmod entData)
+
+                              (vla-put-TextString objAttr newVal)
                             )
                           )
                         )
@@ -127,16 +132,13 @@
                 )
               )
             )
-            (entupd ent) ;; Визуально обновляем блок на экране
           )
-          (princ (strcat "\nПредупреждение: У блока " (vl-prin1-to-string ent) " атрибут Z пуст или некорректен."))
+          (princ (strcat "\nПропущено: У блока " (vl-prin1-to-string ent) " отсутствует или некорректен атрибут Z."))
         )
-
-        (setq idx (1+ idx)) ;; Переходим к следующему блоку
+        (setq idx (1+ idx))
       )
 
-      ;; ЗАКРЫВАЕМ МЕТКУ ОТМЕНЫ
-      (vla-EndUndoMark doc)
+      (command "_.UNDO" "_End")
       (princ (strcat "\nОбработка завершена. Успешно обработано блоков: " (itoa ssLen)))
     )
     (princ "\nБлоки не выбраны.")
@@ -144,5 +146,5 @@
   (princ)
 )
 
-(princ "\nСкрипт загружен. Новая команда запуска: KolodecCalcZ")
+(princ "\nСкрипт загружен. Команда запуска: KolodecCalcZ")
 (princ)
