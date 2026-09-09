@@ -21,8 +21,18 @@ def _format_yyxx(yy: int, xx: int) -> str:
     return f"{yy_part}-{abs(xx):02d}"
 
 
-def calculate_nomenclature(x: float, y: float) -> str:
+def detect_coordinate_system(x: float, y: float) -> str:
+    """СК63, если координаты содержат миллионную часть; иначе МСК."""
+    if x >= 1_000_000 or y >= 1_000_000:
+        return "СК63"
+    return "МСК"
+
+
+def calculate_nomenclature(x: float, y: float, coordinate_system: str = "МСК") -> str:
     """Номенклатура листа для точки (x, y) в формате YY+XX;NN."""
+    if coordinate_system == "СК63":
+        x = x % 100000
+        y = y % 100000
     x_thousand = int(math.floor(x / 1000))
     y_thousand = int(math.floor(y / 1000))
     # within-block coordinate in [0, 1000)
@@ -267,6 +277,7 @@ def _add_label(db: Db.Database, text: str, cx: float, cy: float, height: float) 
 def draw_cells(
     db: Db.Database,
     cells: list[tuple[float, float]],
+    coordinate_system: str = "МСК",
     size: float = GRID_SIZE,
     text_height: float = TEXT_HEIGHT,
 ) -> int:
@@ -275,7 +286,7 @@ def draw_cells(
         cx = x0 + size / 2
         cy = y0 + size / 2
         _add_cell_rect(db, x0, y0, size)
-        label = calculate_nomenclature(cx, cy)
+        label = calculate_nomenclature(cx, cy, coordinate_system)
         _add_label(db, label, cx, cy, text_height)
     return len(cells)
 
@@ -351,11 +362,18 @@ def draw_nomenclature() -> None:
             print("[IGI Tools] Не найдено ни одной корректной замкнутой полилинии.")
             return
 
-        # ── Step 3: build nesting tree ──
+        # ── Step 3: detect coordinate system ──
+        all_vertices = [v for _, vertices, _ in poly_data for v in vertices]
+        minx = min(v[0] for v in all_vertices)
+        miny = min(v[1] for v in all_vertices)
+        coordinate_system = detect_coordinate_system(minx, miny)
+        print(f"[IGI Tools] Определена система координат: {coordinate_system}.")
+
+        # ── Step 4: build nesting tree ──
         shapely_polys = [pd[2] for pd in poly_data]
         parent_map, children_map = _build_nesting_tree(shapely_polys)
 
-        # ── Step 4: check for touching boundaries (parent ↔ hole) ──
+        # ── Step 5: check for touching boundaries (parent ↔ hole) ──
         for child_idx, parent_idx in parent_map.items():
             if parent_idx is not None and _depth_in_tree(parent_map, child_idx) % 2 == 1:
                 if shapely_polys[parent_idx].touches(shapely_polys[child_idx]):
@@ -364,7 +382,7 @@ def draw_nomenclature() -> None:
                         f"касаются внешнего контура #{parent_idx + 1}."
                     )
 
-        # ── Step 5: compute visible cells ──
+        # ── Step 6: compute visible cells ──
         visible_set: set[tuple[float, float]] = set()
 
         for idx, (oid, vertices, _) in enumerate(poly_data):
@@ -393,8 +411,8 @@ def draw_nomenclature() -> None:
             for cell in filtered:
                 visible_set.add(cell)
 
-        # ── Step 6: draw ──
-        total_cells = draw_cells(db, list(visible_set))
+        # ── Step 7: draw ──
+        total_cells = draw_cells(db, list(visible_set), coordinate_system)
         processed = len(poly_data)
 
         print(f"\n[IGI Tools] Обработано полигонов: {processed}, построено ячеек сетки: {total_cells}.")
@@ -405,7 +423,7 @@ def draw_nomenclature() -> None:
             for x0, y0 in visible_set:
                 cx = x0 + GRID_SIZE / 2
                 cy = y0 + GRID_SIZE / 2
-                label = calculate_nomenclature(cx, cy)
+                label = calculate_nomenclature(cx, cy, coordinate_system)
                 block, _, sq_str = label.partition(";")
                 if sq_str:
                     block_map[block].append(int(sq_str))
