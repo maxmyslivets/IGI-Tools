@@ -1,64 +1,157 @@
-(defun c:IGI_KolodecCalcZ ( / ss ent attr zVal attrList entData attrTag attrVal numVal newVal parsed *error* idx ssLen clean-str objAttr format-z-value)
+(defun c:IGI_KolodecCalcZ ( / ss ent attr zVal attrList entData attrTag attrVal numVal newValStr parsed *error* idx ssLen clean-str objAttr format-z-value parse-z-string eval-formula)
   (vl-load-com)
 
-  ;; НАЧАЛО ОБРАБОТЧИКА ОШИБОК
+  ;; БЕЗОПАСНЫЙ ОБРАБОТЧИК ОШИБОК
   (setq *error* (lambda (msg)
-    (command "_.UNDO" "_End")
-    (if (not (member msg '("Function cancelled" "quit / exit abort")))
-      (princ (strcat "\nОшибка: " msg))
+    (vl-catch-all-apply 'command-s '("_.UNDO" "_End"))
+    (if (not (member msg '("Function cancelled" "quit / exit abort" "Функция отменена")))
+      (princ (strcat "\n[IGI] Ошибка: " msg))
     )
     (princ)
   ))
-  ;; КОНЕЦ ОБРАБОТЧИКА ОШИБОК
 
-  ;; Функция очистки только крайних пробелов всей исходной строки
+  ;; Функция очистки крайних пробелов строки
   (defun clean-str (str)
     (vl-string-left-trim " " (vl-string-right-trim " " str))
   )
 
-  ;; Вспомогательная функция парсинга строки.
-  ;; Возвращает список: (число_как_вещественное . (суффикс . исходная_строка_числа_для_подсчета_знаков))
-  (defun parse-z-string (str / len i testStr numVal suffix found lastChar)
-    (setq str (clean-str str))
-    (setq len (strlen str)
-          i len
-          found nil)
-    (while (and (> i 0) (not found))
-      (setq testStr (substr str 1 i))
-      (setq numVal (distof testStr))
-      (if numVal
+  ;; Внутренний инфиксный математический парсер строк (Чистый AutoLISP)
+  (defun eval-formula (str / tokens i len c item stream lookahead match parse-factor parse-term parse-expr)
+    (setq str (vl-string-translate "," "." (clean-str str)))
+
+    ;; Лексический анализатор: разбиваем строку на токены
+    (setq tokens '() i 1 len (strlen str) item "")
+    (while (<= i len)
+      (setq c (substr str i 1))
+      (if (vl-string-search c "0123456789.")
+        (setq item (strcat item c))
         (progn
-          (setq lastChar (substr testStr i 1))
-          (if (= lastChar " ")
-            (setq i (1- i))
-            (setq found t
-                  suffix (substr str (1+ i)))
+          (if (/= item "") (setq tokens (cons (distof item) tokens) item ""))
+          (if (vl-string-search c "+-*/()")
+            (setq tokens (cons c tokens))
           )
         )
-        (setq i (1- i))
+      )
+      (setq i (1+ i))
+    )
+    (if (/= item "") (setq tokens (cons (distof item) tokens)))
+    (setq stream (reverse tokens))
+    (setq lookahead (car stream))
+
+    ;; Обычные локальные функции через defun вместо ламбд (решает проблему неверной функции)
+    (defun match (token)
+      (if (= lookahead token)
+        (setq stream (cdr stream) lookahead (car stream))
       )
     )
-    ;; Теперь возвращаем еще и testStr (чистую строку числа до парсинга)
-    (if found (list numVal suffix testStr) nil)
+
+    (defun parse-factor ( / res)
+      (cond
+        ((numberp lookahead)
+         (setq res lookahead)
+         (setq stream (cdr stream) lookahead (car stream))
+         res)
+        ((= lookahead "-")
+         (match "-")
+         (* -1.0 (parse-factor)))
+        ((= lookahead "+")
+         (match "+")
+         (parse-factor))
+        ((= lookahead "(")
+         (match "(")
+         (setq res (parse-expr))
+         (match ")")
+         res)
+        (t 0.0)
+      )
+    )
+
+    (defun parse-term ( / val nextVal op)
+      (setq val (parse-factor))
+      (while (member lookahead '("*" "/"))
+        (setq op lookahead)
+        (setq stream (cdr stream) lookahead (car stream))
+        (setq nextVal (parse-factor))
+        (if (= op "*")
+          (setq val (* val nextVal))
+          (if (/= nextVal 0.0) (setq val (/ val nextVal)) (setq val 0.0))
+        )
+      )
+      val
+    )
+
+    (defun parse-expr ( / val nextVal op)
+      (setq val (parse-term))
+      (while (member lookahead '("+" "-"))
+        (setq op lookahead)
+        (setq stream (cdr stream) lookahead (car stream))
+        (setq nextVal (parse-term))
+        (if (= op "+")
+          (setq val (+ val nextVal))
+          (setq val (- val nextVal))
+        )
+      )
+      val
+    )
+
+    ;; Безопасный запуск вычисления главного выражения
+    (if stream
+      (vl-catch-all-apply 'parse-expr)
+      0.0
+    )
   )
 
-  ;; Функция динамического форматирования значения на основе исходной точности
-  (defun format-z-value (val origNumStr / dotPos precision)
+  ;; Функция точечного разделения математики от текста
+  (defun parse-z-string (str / len i c allowed formula partSuffix found numVal)
+    (setq str (clean-str str))
+    (setq len (strlen str) i 1
+          allowed "0123456789.-+*/(),"
+          formula "" partSuffix "" found nil)
+
+    (while (<= i len)
+      (setq c (substr str i 1))
+      (if (and (not found) (vl-string-search c allowed))
+        (setq formula (strcat formula c))
+        (setq found t partSuffix (strcat partSuffix c))
+      )
+      (setq i (1+ i))
+    )
+
+    (while (and (> (strlen formula) 0) (member (substr formula (strlen formula) 1) '("+" "-" "*" "/")))
+      (setq partSuffix (strcat (substr formula (strlen formula) 1) partSuffix))
+      (setq formula (substr formula 1 (1- (strlen formula))))
+    )
+
+    (if (/= formula "")
+      (progn
+        (setq numVal (eval-formula formula))
+        (if (numberp numVal)
+          (list numVal partSuffix formula)
+          nil
+        )
+      )
+      nil
+    )
+  )
+
+  ;; Функция динамического форматирования значения на основе исходной точности формулы
+  (defun format-z-value (val origNumStr / dotPos precision calcPart i)
     (setq dotPos (vl-string-search "." origNumStr))
     (if dotPos
-      ;; Считаем, сколько символов идет после точки
-      (setq precision (- (strlen origNumStr) dotPos 1))
-      ;; Если точки вообще не было (целое число), точность принимаем за 0
+      (progn
+        (setq calcPart (substr origNumStr (1+ dotPos)))
+        (setq i 1 precision 0)
+        (while (and (<= i (strlen calcPart)) (vl-string-search (substr calcPart i 1) "0123456789"))
+          (setq precision (1+ precision) i (1+ i))
+        )
+      )
       (setq precision 0)
     )
-    ;; Если знаков меньше 2, принудительно выводим 2 знака. Иначе сохраняем исходную точность.
-    (if (< precision 2)
-      (rtos val 2 2)
-      (rtos val 2 precision)
-    )
+    (if (< precision 2) (setq precision 2))
+    (rtos val 2 precision)
   )
 
-  ;; Выбор блоков
+  ;; Выбор блоков с атрибутами (с поддержкой предварительного выбора)
   (if (not (setq ss (ssget "_I" '((0 . "INSERT") (66 . 1)))))
     (progn
       (princ "\nВыберите блоки колодцев с атрибутами: ")
@@ -68,7 +161,7 @@
 
   (if ss
     (progn
-      (command "_.UNDO" "_BEgin")
+      (command-s "_.UNDO" "_BEgin")
 
       (setq ssLen (sslength ss) idx 0)
 
@@ -85,7 +178,7 @@
           (setq attrVal (vla-get-TextString objAttr))
 
           (if (= attrTag "Z")
-            (setq zVal (distof attrVal))
+            (setq zVal (distof (vl-string-translate "," "." attrVal)))
           )
 
           (setq attrList (cons (cons attrTag objAttr) attrList))
@@ -108,21 +201,24 @@
                       (setq parsed (parse-z-string attrVal))
                       (if parsed
                         (progn
-                          (setq numVal (car parsed))
-                          (setq suffix (cadr parsed))
-                          (setq origNumStr (caddr parsed)) ;; Исходная строка числа (например, "-2.485")
+                          (setq numVal (car parsed))       ;; Чистый внутренний математический расчет
+                          (setq suffix (cadr parsed))       ;; Текст хвостика
+                          (setq formulaStr (caddr parsed))  ;; Строка формулы
 
-                          ;; Проверка дельты (не более 20)
+                          ;; Проверка дельты (не более 20 метров от Z)
                           (if (<= (abs numVal) 20)
                             (progn
-                              ;; Вычисляем новое значение
                               (setq newVal (+ zVal numVal))
-                              ;; Форматируем число по правилу динамической точности
-                              (setq newVal (format-z-value newVal origNumStr))
-                              ;; Склеиваем с суффиксом (пробелы сохранены)
-                              (setq newVal (strcat newVal suffix))
+                              (setq newValStr (format-z-value newVal formulaStr))
 
-                              (vla-put-TextString objAttr newVal)
+                              ;; Вывод чистого математического лога в консоль
+                              (if (= (substr formulaStr 1 1) "-")
+                                (princ (strcat "\n[Лог пересчета] Атрибут " attrTag ": " (rtos zVal 2 2) formulaStr "=" newValStr))
+                                (princ (strcat "\n[Лог пересчета] Атрибут " attrTag ": " (rtos zVal 2 2) "+" formulaStr "=" newValStr))
+                              )
+
+                              (setq newValStr (strcat newValStr suffix))
+                              (vla-put-TextString objAttr newValStr)
                             )
                           )
                         )
@@ -138,7 +234,7 @@
         (setq idx (1+ idx))
       )
 
-      (command "_.UNDO" "_End")
+      (command-s "_.UNDO" "_End")
       (princ (strcat "\nОбработка завершена. Успешно обработано блоков: " (itoa ssLen)))
     )
     (princ "\nБлоки не выбраны.")
