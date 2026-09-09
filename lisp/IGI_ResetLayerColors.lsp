@@ -3,48 +3,48 @@
   (setq acDoc (vla-get-ActiveDocument (vlax-get-acad-object)))
   (setq layersObj (vla-get-Layers acDoc))
   
-  ;; РЎРїРёСЃРѕРє СЃРѕРѕС‚РІРµС‚СЃС‚РІРёСЏ: ("РРјСЏ СЃР»РѕСЏ" . "Р¦РІРµС‚")
-  ;; РРЅРґРµРєСЃС‹ AutoCAD Р·Р°РґР°СЋС‚СЃСЏ С‡РёСЃР»Р°РјРё (7 - Р±РµР»С‹Р№, 2 - Р¶РµР»С‚С‹Р№, 3 - Р·РµР»РµРЅС‹Р№, 6 - С„РёРѕР»РµС‚РѕРІС‹Р№).
-  ;; RGB С†РІРµС‚Р° Р·Р°РґР°СЋС‚СЃСЏ СЃС‚СЂРѕРєРѕР№ РІРёРґР° "R,G,B".
+  ;; Список соответствия: ("Имя слоя" . "Цвет")
+  ;; Индексы AutoCAD задаются числами (7 - белый, 2 - желтый, 3 - зеленый, 6 - фиолетовый).
+  ;; RGB цвета задаются строкой вида "R,G,B".
   (setq layerList
     '(
-      ("02 РЎС‚СЂРѕРµРЅРёСЏ Рё РёС… С‡Р°СЃС‚Рё" . 7)
-      ("15 Р”РѕСЂРѕР¶РЅР°СЏ СЃРµС‚СЊ" . 7)
-      ("18 Р Р°СЃС‚РёС‚РµР»СЊРЅРѕСЃС‚СЊ Рё РіСЂСѓРЅС‚С‹" . 7)
-      ("19 РћРіСЂР°Р¶РґРµРЅРёСЏ" . 7)
+      ("02 Строения и их части" . 7)
+      ("15 Дорожная сеть" . 7)
+      ("18 Растительность и грунты" . 7)
+      ("19 Ограждения" . 7)
     )
   )
 
-  ;; РџСЂРѕС…РѕРґРёРј РїРѕ РІСЃРµРјСѓ СЃРїРёСЃРєСѓ СЃР»РѕРµРІ
+  ;; Проходим по всему списку слоев
   (vla-StartUndoMark acDoc)
   (foreach item layerList
     (setq layName (car item))
     (setq colVal (cdr item))
     
-    ;; РџСЂРѕРІРµСЂСЏРµРј, СЃСѓС‰РµСЃС‚РІСѓРµС‚ Р»Рё СЃР»РѕР№ РІ С‚РµРєСѓС‰РµРј С‡РµСЂС‚РµР¶Рµ
+    ;; Проверяем, существует ли слой в текущем чертеже
     (if (not (vl-catch-all-error-p (setq layObj (vl-catch-all-apply 'vla-Item (list layersObj layName)))))
       (progn
-        ;; Р•СЃР»Рё С†РІРµС‚ Р·Р°РґР°РЅ РєР°Рє RGB (СЃС‚СЂРѕРєР°)
+        ;; Если цвет задан как RGB (строка)
         (if (= (type colVal) 'STR)
           (progn
             (setq trueColorObj (vla-get-TrueColor layObj))
             (vla-put-ColorMethod trueColorObj acColorMethodByRGB)
-            ;; Р Р°Р·Р±РёРІР°РµРј СЃС‚СЂРѕРєСѓ RGB РЅР° С‚СЂРё СЃРѕСЃС‚Р°РІР»СЏСЋС‰РёРµ
+            ;; Разбиваем строку RGB на три составляющие
             (apply 'vla-setRGB (cons trueColorObj (mapcar 'atoi (string-to-list colVal ","))))
             (vla-put-TrueColor layObj trueColorObj)
           )
-          ;; Р•СЃР»Рё С†РІРµС‚ Р·Р°РґР°РЅ РєР°Рє РёРЅРґРµРєСЃ AutoCAD (С‡РёСЃР»Рѕ)
+          ;; Если цвет задан как индекс AutoCAD (число)
           (vla-put-Color layObj colVal)
         )
       )
     )
   )
   (vla-EndUndoMark acDoc)
-  (princ "\nР¦РІРµС‚Р° СЃР»РѕРµРІ СѓСЃРїРµС€РЅРѕ РѕР±РЅРѕРІР»РµРЅС‹!")
+  (princ "\nЦвета слоев успешно обновлены!")
   (princ)
 )
 
-;; Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅР°СЏ С„СѓРЅРєС†РёСЏ РґР»СЏ РїР°СЂСЃРёРЅРіР° RGB СЃС‚СЂРѕРєРё
+;; Вспомогательная функция для парсинга RGB строки
 (defun string-to-list (str del / pos lst)
   (while (setq pos (vl-string-search del str))
     (setq lst (cons (substr str 1 pos) lst)

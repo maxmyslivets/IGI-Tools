@@ -1,7 +1,7 @@
 (defun c:IGI_SP92ToPoints ( / ss i ent name effName insPt zAttr zVal pt count)
   (vl-load-com)
-  ;; Р’С‹Р±РёСЂР°РµРј РІСЃРµ РІС…РѕР¶РґРµРЅРёСЏ Р±Р»РѕРєРѕРІ (РІРєР»СЋС‡Р°СЏ Р°РЅРѕРЅРёРјРЅС‹Рµ *U... РґР»СЏ РґРёРЅР°РјРёС‡РµСЃРєРёС… Р±Р»РѕРєРѕРІ)
-  (if (setq ss (ssget '((0 . "INSERT") (2 . "РЎРџ_9.2,`*U*"))))
+  ;; Выбираем все вхождения блоков (включая анонимные *U... для динамических блоков)
+  (if (setq ss (ssget '((0 . "INSERT") (2 . "СП_9.2,`*U*"))))
     (progn
       (vla-startundomark (vla-get-activedocument (vlax-get-acad-object)))
       (setq i 0
@@ -9,20 +9,20 @@
       (while (< i (sslength ss))
         (setq ent (ssname ss i)
               name (vlax-ename->vla-object ent)
-              ;; РџРѕР»СѓС‡Р°РµРј "РЅР°СЃС‚РѕСЏС‰РµРµ" РёРјСЏ Р±Р»РѕРєР°, РґР°Р¶Рµ РµСЃР»Рё РѕРЅ РґРёРЅР°РјРёС‡РµСЃРєРёР№
+              ;; Получаем "настоящее" имя блока, даже если он динамический
               effName (if (vlax-property-available-p name 'EffectiveName)
                         (vla-get-effectivename name)
                         (vla-get-name name)
                       )
         )
 
-        ;; РџСЂРѕРІРµСЂСЏРµРј, СЃРѕРІРїР°РґР°РµС‚ Р»Рё СЂРµР°Р»СЊРЅРѕРµ РёРјСЏ Р±Р»РѕРєР° СЃ РёСЃРєРѕРјС‹Рј
-        (if (= (strcase effName) (strcase "РЎРџ_9.2"))
+        ;; Проверяем, совпадает ли реальное имя блока с искомым
+        (if (= (strcase effName) (strcase "СП_9.2"))
           (progn
             (setq insPt (vlax-get name 'InsertionPoint)
                   zAttr nil)
 
-            ;; РџРѕРёСЃРє Р°С‚СЂРёР±СѓС‚Р° СЃ РёРјРµРЅРµРј Z
+            ;; Поиск атрибута с именем Z
             (if (= (vla-get-hasattributes name) :vlax-true)
               (foreach attr (vlax-safearray->list (vlax-variant-value (vla-getattributes name)))
                 (if (= (strcase (vla-get-tagstring attr)) "Z")
@@ -31,7 +31,7 @@
               )
             )
 
-            ;; Р•СЃР»Рё Р°С‚СЂРёР±СѓС‚ РЅР°Р№РґРµРЅ, РїСЂРµРѕР±СЂР°Р·СѓРµРј РІ С‡РёСЃР»Рѕ Рё СЃРѕР·РґР°РµРј С‚РѕС‡РєСѓ
+            ;; Если атрибут найден, преобразуем в число и создаем точку
             (if zAttr
               (progn
                 (setq zVal (distof zAttr))
@@ -49,9 +49,9 @@
         (setq i (1+ i))
       )
       (vla-endundomark (vla-get-activedocument (vlax-get-acad-object)))
-      (princ (strcat "\nР“РѕС‚РѕРІРѕ! РЈСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅРѕ С‚РѕС‡РµРє: " (itoa count)))
+      (princ (strcat "\nГотово! Успешно создано точек: " (itoa count)))
     )
-    (princ "\nРќР° С‡РµСЂС‚РµР¶Рµ РІРѕРѕР±С‰Рµ РЅРµ РІС‹Р±СЂР°РЅРѕ РїРѕРґС…РѕРґСЏС‰РёС… Р±Р»РѕРєРѕРІ.")
+    (princ "\nНа чертеже вообще не выбрано подходящих блоков.")
   )
   (princ)
 )

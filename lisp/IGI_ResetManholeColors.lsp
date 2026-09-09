@@ -1,44 +1,45 @@
-(defun c:IGI_ResetManholeColors ( / acDoc pfx_ansi sfx_ansi pfx_utf8 sfx_utf8 blkList blkName layout ent count )
+(defun c:IGI_ResetManholeColors ( / acDoc pfx sfx blkList blkName layout ent count )
   (vl-load-com)
   (setq acDoc (vla-get-ActiveDocument (vlax-get-acad-object)))
 
-  ;; Р“РµРЅРµСЂРёСЂСѓРµРј РїСЂРµС„РёРєСЃС‹ Рё СЃСѓС„С„РёРєСЃС‹ РІ РєРѕРґР°С… ASCII / Р®РЅРёРєРѕРґ
-  (setq pfx_ansi (strcat (chr 209) (chr 207) "_")   ;; "РЎРџ_" РІ ANSI
-        sfx_ansi (strcat "." (chr 235)))            ;; ".Р»" РІ ANSI
-
-  (setq pfx_utf8 (strcat (chr 208) (chr 161) (chr 208) (chr 159) "_") ;; "РЎРџ_" РІ UTF-8
-        sfx_utf8 (strcat "." (chr 208) (chr 187)))                   ;; ".Р»" РІ UTF-8
-
   (setq blkList nil)
 
-  ;; Р“РµРЅРµСЂРёСЂСѓРµРј С‚РѕС‡РЅС‹Рµ РёРјРµРЅР° РґР»СЏ Р±Р»РѕРєРѕРІ Р‘Р•Р— СЃСѓС„С„РёРєСЃР° (Р”РѕР±Р°РІР»РµРЅС‹ 4.1.2.9 Рё 4.8.5.1)
-  (foreach num '(
-                 "4.1.1.1" "4.1.2.1" "4.1.2.2" "4.1.2.3" "4.1.2.4"
-                 "4.1.2.5" "4.1.2.7" "4.1.2.8" "4.1.2.9" "4.2.1"
-                 "4.2.2"   "4.3.1.1" "4.8.5.1"
-                )
-    (setq blkList (cons (strcase (strcat pfx_ansi num) t) blkList))
-    (setq blkList (cons (strcase (strcat pfx_utf8 num) t) blkList))
-  )
+  ;; Перебираем все возможные комбинации регистра для префикса и суффикса,
+  ;; чтобы гарантировать стопроцентное совпадение в любой версии AutoCAD.
+  (foreach pfx '("СП_" "сп_" "Сп_" "сП_")
+    (foreach sfx '(".л" ".Л")
 
-  ;; Р“РµРЅРµСЂРёСЂСѓРµРј С‚РѕС‡РЅС‹Рµ РёРјРµРЅР° РґР»СЏ Р±Р»РѕРєРѕРІ РЎ СЃСѓС„С„РёРєСЃРѕРј ".Р»" (Р”РѕР±Р°РІР»РµРЅ 4.1.2.9)
-  (foreach num '("4.1.2.1" "4.1.2.2" "4.1.2.3" "4.1.2.4" "4.1.2.5" "4.1.2.7" "4.1.2.8" "4.1.2.9" "4.2.2")
-    (setq blkList (cons (strcase (strcat pfx_ansi num sfx_ansi) t) blkList))
-    (setq blkList (cons (strcase (strcat pfx_utf8 num sfx_utf8) t) blkList))
+      ;; 1. Генерируем имена для блоков БЕЗ суффикса
+      (foreach num '("4.1.1.1" "4.1.2.1" "4.1.2.2" "4.1.2.3" "4.1.2.4"
+                     "4.1.2.5" "4.1.2.7" "4.1.2.8" "4.1.2.9" "4.2.1"
+                     "4.2.2"   "4.3.1.1" "4.8.5.1")
+        (setq blkList (cons (strcat pfx num) blkList))
+      )
+
+      ;; 2. Генерируем имена для блоков С суффиксом ".л"
+      (foreach num '("4.1.2.1" "4.1.2.2" "4.1.2.3" "4.1.2.4" "4.1.2.5"
+                     "4.1.2.7" "4.1.2.8" "4.1.2.9" "4.2.2")
+        (setq blkList (cons (strcat pfx num sfx) blkList))
+      )
+
+    )
   )
 
   (vla-StartUndoMark acDoc)
   (setq count 0)
 
-  ;; РџРµСЂРµР±РѕСЂ РІСЃРµС… РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІ С‡РµСЂС‚РµР¶Р°
+  ;; Перебор всех пространств чертежа (Модель и Листы)
   (vlax-for layout (vla-get-Layouts acDoc)
     (vlax-for ent (vla-get-Block layout)
       (if (= (vla-get-ObjectName ent) "AcDbBlockReference")
         (progn
-          (setq blkName (strcase (vla-get-EffectiveName ent) t))
+          ;; Читаем имя как есть, без принудительного изменения регистра
+          (setq blkName (vla-get-EffectiveName ent))
+
+          ;; Сравниваем имя со списком комбинаций
           (if (member blkName blkList)
             (progn
-              (vla-put-Color ent 0) ;; 0 = РџРѕ Р±Р»РѕРєСѓ
+              (vla-put-Color ent 0) ;; 0 = По блоку (ByBlock)
               (setq count (1+ count))
             )
           )

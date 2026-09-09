@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Assembles dist/IGITools.bundle from sources + python-embed.
@@ -83,8 +83,8 @@ $runtimeDest = Join-Path $contents "runtime"
 New-Item -ItemType Directory -Force -Path $lispDest, $pythonDest, $resDest | Out-Null
 
 # LISP loader + project scripts
-# Исходники в git — UTF-8; в bundle для AutoCAD — Windows-1251 (ANSI/MBCS).
-# UTF-8/BOM AutoCAD часто игнорирует (LISPSYS=0 и загрузка .lsp) → кракозябры.
+# Исходники в git — UTF-8; в bundle для AutoCAD должна быть Windows-1251 (ANSI/MBCS).
+# Проверяем кодировку и предупреждаем, если файл не в Windows-1251.
 function Copy-LispForAutocad {
     param([string]$Source, [string]$Destination)
     $ext = [IO.Path]::GetExtension($Source).ToLowerInvariant()
@@ -92,15 +92,37 @@ function Copy-LispForAutocad {
         Copy-Item $Source $Destination -Force
         return
     }
+
+    # Копируем как есть (без конвертации)
+    Copy-Item $Source $Destination -Force
+
+    # Проверка кодировки — только предупреждение, не блокируем
     $bytes = [IO.File]::ReadAllBytes($Source)
-    $offset = 0
-    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
-        $offset = 3
+    $hasBom = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
+    if ($hasBom) {
+        Write-Warning "$Source : обнаружен UTF-8 BOM — файл не в Windows-1251. LISP может неверно работать."
+        return
     }
-    $payload = if ($offset -gt 0) { $bytes[$offset..($bytes.Length - 1)] } else { $bytes }
-    $text = [Text.Encoding]::UTF8.GetString($payload)
-    $cp1251 = [Text.Encoding]::GetEncoding(1251)
-    [IO.File]::WriteAllText($Destination, $text, $cp1251)
+
+    # Проверка на многобайтовые UTF-8 последовательности (признак UTF-8 без BOM)
+    $i = 0
+    $hasMultiByte = $false
+    while ($i -lt $bytes.Length) {
+        if ($bytes[$i] -le 0x7F) {
+            $i += 1
+        } elseif ($bytes[$i] -ge 0xC2 -and $bytes[$i] -le 0xDF -and $i + 1 -lt $bytes.Length -and $bytes[$i+1] -ge 0x80 -and $bytes[$i+1] -le 0xBF) {
+            $hasMultiByte = $true
+            $i += 2
+        } elseif ($bytes[$i] -ge 0xE0 -and $bytes[$i] -le 0xEF -and $i + 2 -lt $bytes.Length -and $bytes[$i+1] -ge 0x80 -and $bytes[$i+1] -le 0xBF -and $bytes[$i+2] -ge 0x80 -and $bytes[$i+2] -le 0xBF) {
+            $hasMultiByte = $true
+            $i += 3
+        } else {
+            $i += 1
+        }
+    }
+    if ($hasMultiByte) {
+        Write-Warning "$Source : обнаружена UTF-8 кодировка (без BOM) — файл не в Windows-1251. LISP может неверно работать."
+    }
 }
 
 Copy-LispForAutocad `

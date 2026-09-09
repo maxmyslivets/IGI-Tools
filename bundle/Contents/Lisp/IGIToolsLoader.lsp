@@ -1,9 +1,9 @@
-п»ї;; IGIToolsLoader.lsp вЂ” Р°РІС‚РѕР·Р°РіСЂСѓР·РєР° AutoLISP / VLX РёР· Contents/Lisp
-;; Р—Р°РіСЂСѓР¶Р°РµС‚СЃСЏ С‡РµСЂРµР· PackageContents.xml (LoadOnAutoCADStartup).
+;; IGIToolsLoader.lsp — автозагрузка AutoLISP / VLX из Contents/Lisp
+;; Загружается через PackageContents.xml (LoadOnAutoCADStartup).
 ;;
-;; Р’Р°Р¶РЅРѕ: PackageContents.xml Р»РµР¶РёС‚ РІ РєРѕСЂРЅРµ bundle Рё РќР• РІС…РѕРґРёС‚ РІ SupportPath,
-;; РїРѕСЌС‚РѕРјСѓ РєР°С‚Р°Р»РѕРі СЃРєСЂРёРїС‚РѕРІ РѕРїСЂРµРґРµР»СЏРµРј С‡РµСЂРµР· findfile СЃР°РјРѕРіРѕ Р·Р°РіСЂСѓР·С‡РёРєР°
-;; (SupportPath РІРєР»СЋС‡Р°РµС‚ ./Contents/Lisp/).
+;; Важно: PackageContents.xml лежит в корне bundle и НЕ входит в SupportPath,
+;; поэтому каталог скриптов определяем через findfile самого загрузчика
+;; (SupportPath включает ./Contents/Lisp/).
 
 (vl-load-com)
 
@@ -18,19 +18,19 @@
 (defun igi-tools-load-file (path / err)
   (cond
     ((not (findfile path))
-      (princ (strcat "\n[IGI Tools] РќРµ РЅР°Р№РґРµРЅ: " path))
+      (princ (strcat "\n[IGI Tools] Не найден: " path))
       nil
     )
     (T
       (setq err (vl-catch-all-apply 'load (list path)))
       (if (vl-catch-all-error-p err)
         (progn
-          (princ (strcat "\n[IGI Tools] РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё: " path))
-          (princ (strcat " вЂ” " (vl-catch-all-error-message err)))
+          (princ (strcat "\n[IGI Tools] Ошибка загрузки: " path))
+          (princ (strcat " — " (vl-catch-all-error-message err)))
           nil
         )
         (progn
-          (princ (strcat "\n[IGI Tools] Р—Р°РіСЂСѓР¶РµРЅ: " (vl-filename-base path)))
+          (princ (strcat "\n[IGI Tools] Загружен: " (vl-filename-base path)))
           T
         )
       )
@@ -63,17 +63,17 @@
   (setq lispDir (igi-tools-lisp-dir))
   (cond
     ((null lispDir)
-      (princ "\n[IGI Tools] IGIToolsLoader.lsp РЅРµ РІ SupportPath вЂ” LISP РЅРµ Р·Р°РіСЂСѓР¶РµРЅС‹.")
+      (princ "\n[IGI Tools] IGIToolsLoader.lsp не в SupportPath — LISP не загружены.")
     )
     (T
       (setq n (igi-tools-load-lisp-folder lispDir))
-      (princ (strcat "\n[IGI Tools] LISP/VLX Р·Р°РіСЂСѓР¶РµРЅРѕ: " (itoa n)))
-      (princ (strcat "\n[IGI Tools] РљР°С‚Р°Р»РѕРі: " lispDir))
+      (princ (strcat "\n[IGI Tools] LISP/VLX загружено: " (itoa n)))
+      (princ (strcat "\n[IGI Tools] Каталог: " lispDir))
     )
   )
   (princ)
 )
 
 (load-igi-tools)
-(princ "\n[IGI Tools] Р“РѕС‚РѕРІРѕ. Python: IGI_CIRCLES_ON_VERTICES. LISP: СЃРј. РєРѕРјР°РЅРґС‹ СЃРєСЂРёРїС‚РѕРІ.")
+(princ "\n[IGI Tools] Готово. Python: IGI_CIRCLES_ON_VERTICES. LISP: см. команды скриптов.")
 (princ)

@@ -2,19 +2,19 @@
   (vl-load-com)
   (setq acDoc (vla-get-ActiveDocument (vlax-get-acad-object)))
 
-  ;; Р“РµРЅРµСЂРёСЂСѓРµРј РїСЂРµС„РёРєСЃС‹ Рё СЃСѓС„С„РёРєСЃС‹ РІ РєРѕРґР°С… ASCII / Р®РЅРёРєРѕРґ
-  ;; 1. Р’Р°СЂРёР°РЅС‚ РґР»СЏ Windows-1251 / ANSI (AutoCAD 2020 Рё СЃС‚Р°СЂРµРµ)
-  (setq pfx_ansi (strcat (chr 209) (chr 207) "_")   ;; "РЎРџ_" РІ ANSI
-        sfx_ansi (strcat "." (chr 235)))            ;; ".Р»" РІ ANSI
+  ;; Генерируем префиксы и суффиксы в кодах ASCII / Юникод
+  ;; 1. Вариант для Windows-1251 / ANSI (AutoCAD 2020 и старее)
+  (setq pfx_ansi (strcat (chr 209) (chr 207) "_")   ;; "СП_" в ANSI
+        sfx_ansi (strcat "." (chr 235)))            ;; ".л" в ANSI
 
-  ;; 2. Р’Р°СЂРёР°РЅС‚ РґР»СЏ UTF-8 (AutoCAD 2021 - 2027+)
-  ;; Р’ UTF-8 СЂСѓСЃСЃРєРёРµ Р±СѓРєРІС‹ РєРѕРґРёСЂСѓСЋС‚СЃСЏ РїР°СЂР°РјРё Р±Р°Р№С‚РѕРІ
-  (setq pfx_utf8 (strcat (chr 208) (chr 161) (chr 208) (chr 159) "_") ;; "РЎРџ_" РІ UTF-8
-        sfx_utf8 (strcat "." (chr 208) (chr 187)))                   ;; ".Р»" РІ UTF-8
+  ;; 2. Вариант для UTF-8 (AutoCAD 2021 - 2027+)
+  ;; В UTF-8 русские буквы кодируются парами байтов
+  (setq pfx_utf8 (strcat (chr 208) (chr 161) (chr 208) (chr 159) "_") ;; "СП_" в UTF-8
+        sfx_utf8 (strcat "." (chr 208) (chr 187)))                   ;; ".л" в UTF-8
 
   (setq blkList nil)
 
-  ;; Р“РµРЅРµСЂРёСЂСѓРµРј С‚РѕС‡РЅС‹Рµ РёРјРµРЅР° РґР»СЏ Р±Р»РѕРєРѕРІ Р‘Р•Р— СЃСѓС„С„РёРєСЃР° (Р”РѕР±Р°РІР»РµРЅС‹ 4.1.2.9 Рё 4.8.5.1)
+  ;; Генерируем точные имена для блоков БЕЗ суффикса (Добавлены 4.1.2.9 и 4.8.5.1)
   (foreach num '(
                  "4.1.1.1" "4.1.2.1" "4.1.2.2" "4.1.2.3" "4.1.2.4"
                  "4.1.2.5" "4.1.2.7" "4.1.2.8" "4.1.2.9" "4.2.1"
@@ -24,7 +24,7 @@
     (setq blkList (cons (strcase (strcat pfx_utf8 num) t) blkList))
   )
 
-  ;; Р“РµРЅРµСЂРёСЂСѓРµРј С‚РѕС‡РЅС‹Рµ РёРјРµРЅР° РґР»СЏ Р±Р»РѕРєРѕРІ РЎ СЃСѓС„С„РёРєСЃРѕРј ".Р»" (Р”РѕР±Р°РІР»РµРЅ 4.1.2.9)
+  ;; Генерируем точные имена для блоков С суффиксом ".л" (Добавлен 4.1.2.9)
   (foreach num '("4.1.2.1" "4.1.2.2" "4.1.2.3" "4.1.2.4" "4.1.2.5" "4.1.2.7" "4.1.2.8" "4.1.2.9" "4.2.2")
     (setq blkList (cons (strcase (strcat pfx_ansi num sfx_ansi) t) blkList))
     (setq blkList (cons (strcase (strcat pfx_utf8 num sfx_utf8) t) blkList))
@@ -33,18 +33,18 @@
   (vla-StartUndoMark acDoc)
   (setq count 0)
 
-  ;; РџРµСЂРµР±РѕСЂ РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІ С‡РµСЂС‚РµР¶Р°
+  ;; Перебор пространств чертежа
   (vlax-for layout (vla-get-Layouts acDoc)
     (vlax-for ent (vla-get-Block layout)
       (if (= (vla-get-ObjectName ent) "AcDbBlockReference")
         (progn
-          ;; Р§РёС‚Р°РµРј РўРћР§РќРћР• РёРјСЏ Р±Р»РѕРєР° РёР· РїР°РјСЏС‚Рё AutoCAD
+          ;; Читаем ТОЧНОЕ имя блока из памяти AutoCAD
           (setq blkName (strcase (vla-get-EffectiveName ent) t))
 
-          ;; РЎСЂР°РІРЅРёРІР°РµРј СЃРёРјРІРѕР»-РІ-СЃРёРјРІРѕР» Р±РµР· РјР°СЃРѕРє
+          ;; Сравниваем символ-в-символ без масок
           (if (member blkName blkList)
             (progn
-              (vla-put-Color ent 256) ;; 256 = РџРѕ СЃР»РѕСЋ
+              (vla-put-Color ent 256) ;; 256 = По слою
               (setq count (1+ count))
             )
           )

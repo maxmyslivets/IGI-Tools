@@ -1,36 +1,36 @@
 (defun c:IGI_FIX_Z_FROM_ATTR_SP92 ( / ss ssFiltered i ent vlaObj effName valStr valReal insertionPoint newPoint oldError)
   (vl-load-com)
-  (princ "\n=== РџРµСЂРµРЅРѕСЃ Р·РЅР°С‡РµРЅРёСЏ РёР· Р°С‚СЂРёР±СѓС‚Р° Z РІ РєРѕРѕСЂРґРёРЅР°С‚Сѓ Z Р±Р»РѕРєР° РЎРџ_9.2 ===")
+  (princ "\n=== Перенос значения из атрибута Z в координату Z блока СП_9.2 ===")
 
-  ;; Р›РѕРєР°Р»СЊРЅС‹Р№ РѕР±СЂР°Р±РѕС‚С‡РёРє РѕС€РёР±РѕРє РґР»СЏ Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё С‚СЂР°РЅР·Р°РєС†РёР№ Undo
+  ;; Локальный обработчик ошибок для безопасности транзакций Undo
   (setq oldError *error*)
   (defun *error* (msg)
     (vla-endundomark (vla-get-activedocument (vlax-get-acad-object)))
     (setq *error* oldError)
     (if (not (wcmatch (strcase msg t) "*break*,*cancel*,*exit*"))
-      (princ (strcat "\n[РћС€РёР±РєР°]: " msg))
+      (princ (strcat "\n[Ошибка]: " msg))
     )
     (princ)
   )
 
-  ;; 1. РџСЂРѕРІРµСЂРєР° РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅРѕРіРѕ РІС‹Р±РѕСЂР° (Pickfirst)
-  (setq ss (ssget "_I" '((0 . "INSERT") (66 . 1) (2 . "РЎРџ_9.2,`*U*"))))
+  ;; 1. Проверка предварительного выбора (Pickfirst)
+  (setq ss (ssget "_I" '((0 . "INSERT") (66 . 1) (2 . "СП_9.2,`*U*"))))
 
-  ;; 2. Р•СЃР»Рё РїСЂРµРґРІР°СЂРёС‚РµР»СЊРЅРѕРіРѕ РІС‹Р±РѕСЂР° РЅРµС‚, Р·Р°РїСЂР°С€РёРІР°РµРј РІС‹Р±РѕСЂ Сѓ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+  ;; 2. Если предварительного выбора нет, запрашиваем выбор у пользователя
   (if (null ss)
     (progn
-      (princ "\nР’С‹Р±РµСЂРёС‚Рµ Р±Р»РѕРєРё РЎРџ_9.2 РґР»СЏ РёСЃРїСЂР°РІР»РµРЅРёСЏ РєРѕРѕСЂРґРёРЅР°С‚С‹ Z...")
-      (setq ss (ssget '((0 . "INSERT") (66 . 1) (2 . "РЎРџ_9.2,`*U*"))))
+      (princ "\nВыберите блоки СП_9.2 для исправления координаты Z...")
+      (setq ss (ssget '((0 . "INSERT") (66 . 1) (2 . "СП_9.2,`*U*"))))
     )
   )
 
-  ;; 3. РћР±СЂР°Р±РѕС‚РєР° РЅР°Р±РѕСЂР° РѕР±СЉРµРєС‚РѕРІ
+  ;; 3. Обработка набора объектов
   (if ss
     (progn
       (setq ssFiltered (ssadd))
       (setq i 0)
 
-      ;; РќР°С‡Р°Р»Рѕ РіСЂСѓРїРїС‹ РѕС‚РјРµРЅС‹ (Undo)
+      ;; Начало группы отмены (Undo)
       (vla-startundomark (vla-get-activedocument (vlax-get-acad-object)))
 
       (repeat (sslength ss)
@@ -38,31 +38,31 @@
         (setq vlaObj (vlax-ename->vla-object ent))
         (setq effName (vla-get-effectivename vlaObj))
 
-        ;; РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ СЌС„С„РµРєС‚РёРІРЅРѕРµ РёРјСЏ РґРёРЅР°РјРёС‡РµСЃРєРѕРіРѕ Р±Р»РѕРєР° РёРјРµРЅРЅРѕ "РЎРџ_9.2"
-        (if (= (strcase effName) (strcase "РЎРџ_9.2"))
+        ;; Проверяем, что эффективное имя динамического блока именно "СП_9.2"
+        (if (= (strcase effName) (strcase "СП_9.2"))
           (progn
-            ;; РС‰РµРј Р°С‚СЂРёР±СѓС‚ Z
+            ;; Ищем атрибут Z
             (foreach att (vlax-invoke vlaObj 'GetAttributes)
               (if (= (strcase (vla-get-tagstring att)) "Z")
                 (progn
                   (setq valStr (vla-get-textstring att))
-                  (setq valStr (vl-string-translate "," "." valStr)) ;; Р—Р°РјРµРЅР° Р·Р°РїСЏС‚РѕР№ РЅР° С‚РѕС‡РєСѓ
+                  (setq valStr (vl-string-translate "," "." valStr)) ;; Замена запятой на точку
 
-                  ;; РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ РІ Р°С‚СЂРёР±СѓС‚Рµ РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ С‡РёСЃР»Рѕ
+                  ;; Проверяем, что в атрибуте действительно число
                   (if (and valStr (/= valStr "") (numberp (distof valStr)))
                     (progn
                       (setq valReal (atof valStr))
 
-                      ;; РџРѕР»СѓС‡Р°РµРј С‚РµРєСѓС‰СѓСЋ С‚РѕС‡РєСѓ РІСЃС‚Р°РІРєРё Р±Р»РѕРєР° (Variant -> SafeArray -> List)
+                      ;; Получаем текущую точку вставки блока (Variant -> SafeArray -> List)
                       (setq insertionPoint (vlax-safearray->list (vlax-variant-value (vla-get-insertionpoint vlaObj))))
 
-                      ;; Р¤РѕСЂРјРёСЂСѓРµРј РЅРѕРІС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ (X Рё Y СЃС‚Р°СЂС‹Рµ, Z Р±РµСЂРµРј РёР· Р°С‚СЂРёР±СѓС‚Р°)
+                      ;; Формируем новые координаты (X и Y старые, Z берем из атрибута)
                       (setq newPoint (list (car insertionPoint) (cadr insertionPoint) valReal))
 
-                      ;; Р¤РёР·РёС‡РµСЃРєРё РїРµСЂРµРјРµС‰Р°РµРј Р±Р»РѕРє РЅР° РЅРѕРІСѓСЋ РєРѕРѕСЂРґРёРЅР°С‚Сѓ Z
+                      ;; Физически перемещаем блок на новую координату Z
                       (vla-put-insertionpoint vlaObj (vlax-3d-point newPoint))
 
-                      ;; Р”РѕР±Р°РІР»СЏРµРј СѓСЃРїРµС€РЅРѕ РёР·РјРµРЅРµРЅРЅС‹Р№ Р±Р»РѕРє РІ РёС‚РѕРіРѕРІС‹Р№ РЅР°Р±РѕСЂ
+                      ;; Добавляем успешно измененный блок в итоговый набор
                       (ssadd ent ssFiltered)
                     )
                   )
@@ -74,22 +74,22 @@
         (setq i (1+ i))
       )
 
-      ;; Р—Р°РІРµСЂС€РµРЅРёРµ РіСЂСѓРїРїС‹ РѕС‚РјРµРЅС‹ (Undo)
+      ;; Завершение группы отмены (Undo)
       (vla-endundomark (vla-get-activedocument (vlax-get-acad-object)))
 
-      ;; 4. РС‚РѕРіРё СЂР°Р±РѕС‚С‹ Рё РїРѕРґСЃРІРµС‚РєР° РёР·РјРµРЅРµРЅРЅС‹С… Р±Р»РѕРєРѕРІ
+      ;; 4. Итоги работы и подсветка измененных блоков
       (if (> (sslength ssFiltered) 0)
         (progn
           (sssetfirst nil ssFiltered)
-          (princ (strcat "\nРЈСЃРїРµС€РЅРѕ РїРµСЂРµРјРµС‰РµРЅРѕ Рё РІС‹РґРµР»РµРЅРѕ Р±Р»РѕРєРѕРІ: " (itoa (sslength ssFiltered))))
+          (princ (strcat "\nУспешно перемещено и выделено блоков: " (itoa (sslength ssFiltered))))
         )
-        (princ "\nРЎСЂРµРґРё РІС‹Р±СЂР°РЅРЅС‹С… РѕР±СЉРµРєС‚РѕРІ РЅРµ РЅР°Р№РґРµРЅРѕ РїРѕРґС…РѕРґСЏС‰РёС… Р±Р»РѕРєРѕРІ СЃ Р·Р°РїРѕР»РЅРµРЅРЅС‹Рј Р°С‚СЂРёР±СѓС‚РѕРј Z.")
+        (princ "\nСреди выбранных объектов не найдено подходящих блоков с заполненным атрибутом Z.")
       )
     )
-    (princ "\nР‘Р»РѕРєРё РЅРµ РІС‹Р±СЂР°РЅС‹.")
+    (princ "\nБлоки не выбраны.")
   )
 
-  ;; Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ СЃС‚Р°РЅРґР°СЂС‚РЅРѕРіРѕ РѕР±СЂР°Р±РѕС‚С‡РёРєР° РѕС€РёР±РѕРє
+  ;; Восстановление стандартного обработчика ошибок
   (setq *error* oldError)
   (princ)
 )
