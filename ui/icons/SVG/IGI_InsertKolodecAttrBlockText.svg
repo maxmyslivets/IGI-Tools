@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Кольцо колодца (базовый объект) -->
+  <circle cx="16" cy="16" r="13" fill="none" stroke="#D9D9D9" stroke-width="1.5"/>
+
+
+  <!-- Буква Z (отметка) — главный акцент -->
+  <path d="M 8,10 L 19,10 L 8,21 L 19,21" fill="none" stroke="#89CBFA" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Строки атрибутов Z1-Z4 (нейтральные линии) -->
+  <rect x="7.5" y="23" width="14" height="1.5" rx="0.75" fill="#808080" opacity="0.5"/>
+
+  <!-- Стрелка вставки (процесс / действие) -->
+  <line x1="23" y1="12.5" x2="23" y2="19" stroke="#82D99F" stroke-width="1.5" stroke-linecap="round"/>
+  <polygon points="21,15.5 23,11 25,15.5" fill="#82D99F"/>
+
+  <!-- Плюс — маркер вставки -->
+  <line x1="21" y1="12.5" x2="25" y2="12.5" stroke="#82D99F" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="23" y1="10.5" x2="23" y2="14.5" stroke="#82D99F" stroke-width="1.2" stroke-linecap="round"/>
+</svg>
