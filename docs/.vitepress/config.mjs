@@ -4,6 +4,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "IGI Tools",
   description: "Документация плагина для AutoCAD / Civil 3D",
+  base: '/IGI-Tools/',
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
