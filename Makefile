@@ -135,3 +135,8 @@ icons-convert:
 
 icons-update:
 	$(PS_FILE) $(SCRIPT_DIR)/icons_update.ps1
+
+## check-lib — проверить зависимости
+check-lib:
+	.\python-embed\python.exe -m deptry . --known-first-party igi_tools --per-rule-ignores "DEP003=wx|pythoncom|win32com"
+
