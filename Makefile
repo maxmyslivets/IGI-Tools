@@ -140,3 +140,12 @@ icons-update:
 check-lib:
 	.\python-embed\python.exe -m deptry . --known-first-party igi_tools --per-rule-ignores "DEP003=wx|pythoncom|win32com"
 
+## vitepress - развертывание документации
+doc-dev:
+	npm run docs:dev
+
+doc-build:
+	npm run docs:build
+
+doc-preview:
+	npm run docs:preview
