@@ -24,19 +24,63 @@ export default defineConfig({
         text: 'Инструменты',
         items: [
           { text: 'Все инструменты', link: '/guide/core-tools' },
-          { text: 'Выравнивание подписей', link: '/guide/align-labels' },
-          { text: 'Блоки и точки', link: '/guide/blocks-points' },
-          { text: 'Работа с колодцами', link: '/guide/manholes' },
-          { text: 'Высоты и Z-координаты', link: '/guide/elevation' },
-          { text: 'DEM-трекер', link: '/guide/dem-tracker' },
-          { text: 'Буферные зоны', link: '/guide/buffer-poly' },
-          { text: 'Сетка номенклатуры', link: '/guide/nomenclature' },
-          { text: 'Импорт ГЗУ', link: '/guide/gzu-import' },
-          { text: 'Заливка области', link: '/guide/fill-area' },
-          { text: 'Интерполяция', link: '/guide/interpolation' },
-          { text: 'Подпорки', link: '/guide/podporka' },
-          { text: 'Цвета слоёв и блоков', link: '/guide/colors-layers' },
-          { text: 'Очистка и обслуживание', link: '/guide/maintenance' },
+          {
+            text: 'Точки и отметки',
+            collapsed: true,
+            items: [
+              { text: 'Создание отметок', link: '/guide/blocks-points' },
+              { text: 'Корректировка высот', link: '/guide/elevation' },
+              { text: 'Выравнивание подписей', link: '/guide/align-labels' },
+            ]
+          },
+          {
+            text: 'Рисование',
+            collapsed: true,
+            items: [
+              { text: 'Подпорные стенки', link: '/guide/podporka' },
+              { text: 'Заливка области', link: '/guide/fill-area' },
+            ]
+          },
+          {
+            text: 'ЦМР и рельеф',
+            collapsed: true,
+            items: [
+              { text: 'Подключить ЦМР', link: '/guide/open-dem' },
+              { text: 'Интерполяция горизонталей', link: '/guide/interpolation' },
+            ]
+          },
+          {
+            text: 'Автоматизация',
+            collapsed: true,
+            items: [
+              { text: 'DEM-трекер', link: '/guide/dem-tracker' },
+              { text: 'Автоповорот отметок', link: '/guide/auto-align-labels' },
+            ]
+          },
+          {
+            text: 'Коммуникации',
+            collapsed: true,
+            items: [
+              { text: 'Работа с колодцами', link: '/guide/manholes' },
+            ]
+          },
+          {
+            text: 'Специальные инструменты',
+            collapsed: true,
+            items: [
+              { text: 'Импорт ГЗУ', link: '/guide/gzu-import' },
+              { text: 'Буферные зоны', link: '/guide/buffer-poly' },
+              { text: 'Сетка номенклатуры', link: '/guide/nomenclature' },
+              { text: 'Исправление чертежа', link: '/guide/fix-draw' },
+            ]
+          },
+          {
+            text: 'Оформление чертежа',
+            collapsed: true,
+            items: [
+              { text: 'Цвета слоёв и блоков', link: '/guide/colors-layers' },
+            ]
+          },
         ]
       }
     ],
