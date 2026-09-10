@@ -82,6 +82,12 @@ export default defineConfig({
             ]
           },
         ]
+      },
+      {
+        text: 'История изменений',
+        items: [
+          { text: 'Все релизы', link: '/guide/changelog' }
+        ]
       }
     ],
 

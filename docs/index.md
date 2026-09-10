@@ -37,3 +37,9 @@ features:
     details: Установка цветов слоёв и блоков, управление шаблоном условных знаков.
     link: /guide/colors-layers
 ---
+
+<div class="home-sections">
+
+<LatestReleases />
+
+</div>
