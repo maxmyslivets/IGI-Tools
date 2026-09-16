@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import random
 import traceback
 from pathlib import Path
@@ -223,6 +224,13 @@ class _ParamsDialog(wx.Dialog):
         )
         psizer.Add(self.jitter_slider, flag=wx.EXPAND | wx.BOTTOM, border=4)
 
+        # — Вращение (случайный угол) —
+        self.rotation_chk = wx.CheckBox(
+            psizer.GetStaticBox(), label="Вращение объектов"
+        )
+        self.rotation_chk.SetValue(bool(saved_state.get("rotation", False)))
+        psizer.Add(self.rotation_chk, flag=wx.BOTTOM, border=4)
+
         # Разблокировать/заблокировать слайдер в зависимости от режима
         self._update_jitter_enabled(mode_idx == 2)
 
@@ -265,6 +273,7 @@ class _ParamsDialog(wx.Dialog):
             "mode_index": self.mode_radio.GetSelection(),
             "boundary_mode": 0 if self.bound_radio_select.GetValue() else 1,
             "jitter": self.jitter_slider.GetValue() / 100.0,
+            "rotation": self.rotation_chk.GetValue(),
         }
 
     # ── Радио контура ────────────────────────────────────────
@@ -502,7 +511,7 @@ def get_curve_points(curve: Db.Curve, num_samples: int = 200) -> list[Ge.Point3d
 # Сохраняемые ключи UI-состояния
 # ---------------------------------------------------------------------------
 
-_UI_KEYS = frozenset({"step", "mode_index", "boundary_mode", "jitter"})
+_UI_KEYS = frozenset({"step", "mode_index", "boundary_mode", "jitter", "rotation"})
 
 
 # ---------------------------------------------------------------------------
@@ -520,6 +529,7 @@ def fill_area() -> None:
         saved_state = _load_settings()
         saved_state.setdefault("boundary_mode", 0)
         saved_state.setdefault("jitter", 0.7)
+        saved_state.setdefault("rotation", False)
 
         # ObjectId в памяти
         boundary_oid: Db.ObjectId | None = None
@@ -636,6 +646,7 @@ def fill_area() -> None:
                 mode_idx = result["mode_index"]
                 mode_str = _MODE_NAMES[mode_idx]
                 jitter = result.get("jitter", 0.7)
+                rotation = result.get("rotation", False)
 
                 # Сохранить в JSON
                 save_data = {
@@ -643,6 +654,7 @@ def fill_area() -> None:
                     "mode_index": mode_idx,
                     "boundary_mode": result.get("boundary_mode", 0),
                     "jitter": result.get("jitter", 0.7),
+                    "rotation": result.get("rotation", False),
                 }
                 if block_id_from_cfg is not None:
                     save_data["saved_block_name"] = saved_block_name
@@ -779,6 +791,8 @@ def fill_area() -> None:
                                         bref.setLayer(saved_block_layer)
                                     except Exception:
                                         pass
+                                if rotation:
+                                    bref.setRotation(random.uniform(0, 2 * math.pi))
                                 db.addToModelspace(bref)
                                 count += 1
                             elif sample_oid is not None:
@@ -793,9 +807,16 @@ def fill_area() -> None:
                                     new_ent = Db.Entity(clone_id, Db.OpenMode.kForWrite)
                                     displacement = insert_pt - base_pt
                                     vec = Ge.Vector3d(displacement.x, displacement.y, 0.0)
-                                    mat = Ge.Matrix3d.translation(vec)
-                                    new_ent.transformBy(mat)
-                                    count += 1
+                                mat = Ge.Matrix3d.translation(vec)
+                                new_ent.transformBy(mat)
+                                if rotation:
+                                    rot_mat = Ge.Matrix3d.rotation(
+                                        random.uniform(0, 2 * math.pi),
+                                        Ge.Vector3d(0, 0, 1),
+                                        insert_pt,
+                                    )
+                                    new_ent.transformBy(rot_mat)
+                                count += 1
 
                         x += dx
 
