@@ -4,7 +4,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_z2sp92 — создание блоков СП_9.2 из объектов с высотой
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_z2sp92 — создание блоков СП_9.2 из объектов с высотой
 
 Вставляет блок **СП_9.2** в каждую точку выделенных объектов, перенося значение Z из координаты объекта в атрибут блока.
 
@@ -19,7 +19,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_z2sp652 — парная расстановка блоков СП_6.5.2
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_z2sp652 — парная расстановка блоков СП_6.5.2
 
 Находит пары объектов, расположенные близко по плановым координатам (в пределах допуска), и вставляет блок **СП_6.5.2** с атрибутами **H** (высота верхнего) и **Z** (отметка нижнего).
 
@@ -35,7 +35,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_SP92ToPoints — экспорт блоков СП_9.2 в точки
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_SP92ToPoints — экспорт блоков СП_9.2 в точки
 
 Преобразует блоки **СП_9.2** в примитивы **Point** на координатах X, Y блока с высотой Z из атрибута.
 
@@ -45,7 +45,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_SelectSP92 — поиск и подсветка блоков СП_9.2
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_SelectSP92 — поиск и подсветка блоков СП_9.2
 
 Находит все блоки **СП_9.2** на чертеже (включая динамические анонимные) и подсвечивает их.
 
@@ -55,7 +55,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> BlockToVertex — копирование блока по вершинам полилинии
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> BlockToVertex — копирование блока по вершинам полилинии
 
 Копирует выбранный блок во все вершины указанной полилинии.
 

@@ -4,7 +4,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_Interp — построение горизонталей между блоками СП_9.2
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_Interp — построение горизонталей между блоками СП_9.2
 
 Строит промежуточные горизонтали с шагом 0,5 м между двумя или более блоками **СП_9.2**.
 

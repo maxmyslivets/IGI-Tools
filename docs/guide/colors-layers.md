@@ -49,3 +49,4 @@
 ## Связанные страницы
 
 - [Работа с колодцами](/guide/manholes)
+- [Маскировки Wipeout](/guide/wipeout-masks)

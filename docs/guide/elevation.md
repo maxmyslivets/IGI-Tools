@@ -4,7 +4,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_FIX_Z_SP92 — корректировка атрибута Z в блоках СП_9.2
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_FIX_Z_SP92 — корректировка атрибута Z в блоках СП_9.2
 
 Массово изменяет значение атрибута **Z** в выбранных блоках **СП_9.2** на заданную поправку.
 
@@ -17,7 +17,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_FIX_Z_FROM_ATTR_SP92 — перенос Z из атрибута в координату блока
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_FIX_Z_FROM_ATTR_SP92 — перенос Z из атрибута в координату блока
 
 Переносит значение атрибута **Z** блока **СП_9.2** в его физическую координату Z (точку вставки).
 

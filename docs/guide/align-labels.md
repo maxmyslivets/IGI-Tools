@@ -4,7 +4,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_ALIGN_SP92 — выравнивание текста блоков вдоль опорной линии
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_ALIGN_SP92 — выравнивание текста блоков вдоль опорной линии
 
 Разворачивает подписи блоков **СП_9.2** и **СП_6.5.2** параллельно ближайшей линии, полилинии или дуге — текст читается вдоль дороги или границы.
 

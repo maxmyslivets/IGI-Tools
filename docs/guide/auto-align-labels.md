@@ -4,7 +4,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> Автовыравнивание блоков СП_9.2 вдоль дорожной сети
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> Автовыравнивание блоков СП_9.2 вдоль дорожной сети
 
 Блоки **СП_9.2** на слое «15 Дорожная сеть» автоматически разворачиваются вдоль дороги после `MOVE`, `COPY`.
 

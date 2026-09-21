@@ -79,6 +79,7 @@ export default defineConfig({
             collapsed: true,
             items: [
               { text: 'Цвета слоёв и блоков', link: '/guide/colors-layers' },
+              { text: 'Маскировки Wipeout', link: '/guide/wipeout-masks' },
             ]
           },
         ]

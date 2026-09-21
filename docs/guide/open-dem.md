@@ -4,7 +4,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_DEM_TRACKER — высота поверхности под курсором
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_DEM_TRACKER — высота поверхности под курсором
 
 Подключает ЦМР для считывания высот инструментами связанными с получением высот из ЦМР.
 

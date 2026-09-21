@@ -4,7 +4,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_DEM_TRACKER — высота поверхности под курсором
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_DEM_TRACKER — высота поверхности под курсором
 
 Показывает Z-высоту из файла GeoTIFF рядом с курсором. Значение обновляется при движении мыши.
 

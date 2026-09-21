@@ -4,7 +4,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_BUFFER_POLY — буферные полигоны вокруг линий
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_BUFFER_POLY — буферные полигоны вокруг линий
 
 Строит замкнутые полигоны-буферы вокруг выбранных линий и полилиний на заданную ширину.
 

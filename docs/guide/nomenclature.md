@@ -4,7 +4,7 @@
 
 ---
 
-## <img src="/icons/GEO_Tools.svg" style="height:24px; vertical-align:middle"> IGI_DRAW_NOMENCLATURE — сетка листов 250×250 м
+## <img src="/icons/IGI_Tools.svg" style="height:24px; vertical-align:middle"> IGI_DRAW_NOMENCLATURE — сетка листов 250×250 м
 
 Строит сетку листов топографических планов по выбранному замкнутому контуру и подписывает номенклатуру каждого листа.
 
