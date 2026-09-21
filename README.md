@@ -2,6 +2,15 @@
   <img src="ui/icons/SVG/IGI_Tools.svg" alt="IGI Tools" width="160" height="160">
 </p>
 
+<p align="center">
+  <a href="https://maxmyslivets.github.io/IGI-Tools/">
+    <img src="https://img.shields.io/badge/Документация-online-2ea44f" alt="Документация">
+  </a>
+  <a href="https://t.me/max_myslivets">
+    <img src="https://img.shields.io/badge/Telegram-@max_myslivets-26A5E1" alt="Telegram">
+  </a>
+</p>
+
 # IGI Tools
 
 Плагин для **AutoCAD / Civil 3D** (2022–2027): AutoLISP-утилиты и Python-команды на [CADPyRx](https://github.com/CEXT-Dan/PyRx).
