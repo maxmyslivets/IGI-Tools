@@ -34,6 +34,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 WizardStyle=modern
 UninstallDisplayName={#MyAppName}
+SetupIconFile=..\ui\icons\IGI Tools.ico
 InfoAfterFile=
 
 [Languages]
