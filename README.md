@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="ui/icons/SVG/IGI_Tools.svg" alt="IGI Tools" width="160" height="160">
+</p>
+
 # IGI Tools
 
 Плагин для **AutoCAD / Civil 3D** (2022–2027): AutoLISP-утилиты и Python-команды на [CADPyRx](https://github.com/CEXT-Dan/PyRx).
