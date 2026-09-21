@@ -7,14 +7,14 @@
     (vlax-for obj blk
       (if (= (vla-get-objectname obj) "AcDbWipeout")
         (progn
-          ;; Р”РµР»Р°РµРј РѕР±СЉРµРєС‚ РїРѕР»РЅРѕСЃС‚СЊСЋ РЅРµРІРёРґРёРјС‹Рј РґР»СЏ РіСЂР°С„РёС‡РµСЃРєРѕРіРѕ РґРІРёР¶РєР°
+          ;; Делаем объект полностью невидимым для графического движка
           (vl-catch-all-apply 'vla-put-visible (list obj :vlax-false))
         )
       )
     )
   )
   (vla-regen acdoc acAllViewports)
-  (princ "\n[IGI Tools] РњР°СЃРєРёСЂРѕРІРєРё РѕС‚РєР»СЋС‡РµРЅС‹.")
+  (princ "\n[IGI Tools] Маскировки отключены.")
   (princ)
 )
 (defun c:IGI_WipeoutUncuff ( / acdoc blocks blk obj )
@@ -26,13 +26,13 @@
     (vlax-for obj blk
       (if (= (vla-get-objectname obj) "AcDbWipeout")
         (progn
-          ;; Р’РѕР·РІСЂР°С‰Р°РµРј Р±Р°Р·РѕРІСѓСЋ РІРёРґРёРјРѕСЃС‚СЊ РјР°СЃРєРёСЂРѕРІРєР°Рј
+          ;; Возвращаем базовую видимость маскировкам
           (vl-catch-all-apply 'vla-put-visible (list obj :vlax-true))
         )
       )
     )
   )
   (vla-regen acdoc acAllViewports)
-  (princ "\n[IGI Tools] Р’РёРґРёРјРѕСЃС‚СЊ Рё СЂР°Р±РѕС‚Р° РјР°СЃРєРёСЂРѕРІРѕРє РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅС‹.")
+  (princ "\n[IGI Tools] Видимость и работа маскировок восстановлены.")
   (princ)
 )
