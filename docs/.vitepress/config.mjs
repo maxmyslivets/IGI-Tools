@@ -74,14 +74,15 @@ export default defineConfig({
               { text: 'Исправление чертежа', link: '/guide/fix-draw' },
             ]
           },
-          {
-            text: 'Оформление чертежа',
-            collapsed: true,
-            items: [
-              { text: 'Цвета слоёв и блоков', link: '/guide/colors-layers' },
-              { text: 'Маскировки Wipeout', link: '/guide/wipeout-masks' },
-            ]
-          },
+            {
+              text: 'Оформление чертежа',
+              collapsed: true,
+              items: [
+                { text: 'Цвета слоёв и блоков', link: '/guide/colors-layers' },
+                { text: 'Порядок отображения колодцев', link: '/guide/bring-kolodec-to-front' },
+                { text: 'Маскировки Wipeout', link: '/guide/wipeout-masks' },
+              ]
+            },
         ]
       },
       {
