@@ -71,17 +71,19 @@ export default defineConfig({
               { text: 'Импорт ГЗУ', link: '/guide/gzu-import' },
               { text: 'Буферные зоны', link: '/guide/buffer-poly' },
               { text: 'Сетка номенклатуры', link: '/guide/nomenclature' },
+              { text: 'Площадь вложенных полигонов', link: '/guide/get-total-area' },
               { text: 'Исправление чертежа', link: '/guide/fix-draw' },
             ]
           },
-          {
-            text: 'Оформление чертежа',
-            collapsed: true,
-            items: [
-              { text: 'Цвета слоёв и блоков', link: '/guide/colors-layers' },
-              { text: 'Маскировки Wipeout', link: '/guide/wipeout-masks' },
-            ]
-          },
+            {
+              text: 'Оформление чертежа',
+              collapsed: true,
+              items: [
+                { text: 'Цвета слоёв и блоков', link: '/guide/colors-layers' },
+                { text: 'Порядок отображения колодцев', link: '/guide/bring-kolodec-to-front' },
+                { text: 'Маскировки Wipeout', link: '/guide/wipeout-masks' },
+              ]
+            },
         ]
       },
       {

@@ -120,6 +120,11 @@
   <div style="font-size:.87em; opacity:.7; margin-top:4px;">IGI_DRAW_NOMENCLATURE — разграфка 250×250 м</div>
 </a>
 
+  <a href="./get-total-area" style="display:block; padding:16px; border:1px solid var(--vp-c-divider); border-radius:8px; text-decoration:none; color:inherit; transition:border-color .2s;">
+  <div style="font-weight:600; font-size:1.05em;">Площадь вложенных полигонов</div>
+  <div style="font-size:.87em; opacity:.7; margin-top:4px;">IGI_GETTOTALAREAOFNESTEDPOLYGONS — сумма площадей с учётом отверстий</div>
+</a>
+
 </div>
 
 ---
