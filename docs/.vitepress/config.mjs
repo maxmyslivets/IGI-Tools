@@ -71,6 +71,7 @@ export default defineConfig({
               { text: 'Импорт ГЗУ', link: '/guide/gzu-import' },
               { text: 'Буферные зоны', link: '/guide/buffer-poly' },
               { text: 'Сетка номенклатуры', link: '/guide/nomenclature' },
+              { text: 'Площадь вложенных полигонов', link: '/guide/get-total-area' },
               { text: 'Исправление чертежа', link: '/guide/fix-draw' },
             ]
           },

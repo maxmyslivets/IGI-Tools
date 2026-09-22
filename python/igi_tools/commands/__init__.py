@@ -10,6 +10,7 @@ from igi_tools.commands import draw_nomenclature as _draw_nomenclature  # noqa: 
 from igi_tools.commands import gzu_from_geojson as _gzu_from_geojson  # noqa: F401
 from igi_tools.commands import manage_template as _manage_template  # noqa: F401
 from igi_tools.commands import reload_all as _reload_all  # noqa: F401
+from igi_tools.commands import get_total_area_of_nested_polygons as _get_total_area_of_nested_polygons  # noqa: F401
 # from igi_tools.commands import slope_hatch as _slope_hatch  # noqa: F401
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     "gzu_from_geojson",
     "manage_template",
     "reload_all",
+    "get_total_area_of_nested_polygons",
     # "slope_hatch",
 ]
