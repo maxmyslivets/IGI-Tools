@@ -113,3 +113,23 @@ def insert_mark(db: Db.Database, x: float, y: float, elev: float) -> bool:
         print("[IGI Tools] Вставка блока «СП_9.2» через AutoLISP не удалась.")
         return False
     return True
+
+
+def _lisp_str_result(expression: str) -> str | None:
+    result = Ed.Core.evaluateLisp(expression)
+    if not result or len(result) != 1 or not result[0]:
+        return None
+    item = result[0][0]
+    if isinstance(item, tuple) and len(item) == 2 and item[0] == Rx.LispType.kText:
+        return str(item[1])
+    return None
+
+
+def undo_last_mark() -> bool:
+    """Удалить последний вставленный блок отметки. True — удалён."""
+    return _lisp_str_result("(igi-em-undo)") == "OK"
+
+
+def reset_marks_stack() -> None:
+    """Сбросить стек вставленных отметок (перед новым запуском команды)."""
+    Ed.Core.evaluateLisp("(igi-em-reset)")

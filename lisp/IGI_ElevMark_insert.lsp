@@ -1,3 +1,31 @@
+(defun igi-em-undo ( / bobj res)
+  "Удалить последний вставленный блок отметки. Возвращает OK или EMPTY."
+  (if (not igi_em_stack)
+    "EMPTY"
+    (progn
+      (setq bobj (car igi_em_stack))
+      (setq res
+        (vl-catch-all-apply
+          '(lambda ()
+             (if (and bobj (not (vlax-erased-p bobj)))
+               (vla-Delete bobj)
+             )
+             T
+           )
+        )
+      )
+      (setq igi_em_stack (cdr igi_em_stack))
+      (if (vl-catch-all-error-p res) "EMPTY" "OK")
+    )
+  )
+)
+
+(defun igi-em-reset ()
+  "Сбросить стек вставленных блоков отметок."
+  (setq igi_em_stack nil)
+  T
+)
+
 (defun igi-insert-sp92 (x y elev / ms bobj dynProps prop propName attribs attr res)
   (vl-load-com)
   (if (not igi_em_doc)
@@ -36,6 +64,9 @@
                  (vla-put-TextString attr (rtos elev 2 2))
                )
              )
+
+             ;; Стек вставленных блоков — для отмены последних
+             (setq igi_em_stack (cons bobj igi_em_stack))
 
              T
            )
