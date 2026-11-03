@@ -18,7 +18,7 @@ from igi_tools.commands.elev_mark.blocks import (
     reset_marks_stack,
     undo_last_mark,
 )
-from igi_tools.commands.elev_mark.dem import ensure_dem_loaded, get_elevation
+from igi_tools import dem
 
 
 @command(name="IGI_ELEV_MARK")
@@ -27,8 +27,7 @@ def mark_point() -> None:
     print("\n[IGI Tools] Запуск IGI_ELEV_MARK…")
 
     try:
-        loaded, _ = ensure_dem_loaded()
-        if not loaded:
+        if not dem.is_loaded():
             print("[IGI Tools] ЦМР не загружена. Запустите IGI_DEM_TRACKER для подключения георастра.")
             return
 
@@ -56,18 +55,13 @@ def mark_point() -> None:
                 print("[IGI Tools] Команда завершена.")
                 break
 
-            try:
-                elev = get_elevation(pt.x, pt.y)
-                if elev is None:
-                    print("[IGI Tools] Нет данных ЦМР в этой точке — блок не вставлен.")
-                    continue
-                if not insert_mark(db, pt.x, pt.y, elev):
-                    print("[IGI Tools] Не удалось вставить блок «СП_9.2».")
-                    continue
-                print(f"[IGI Tools] Отметка Z = {elev:.2f}")
-            except Exception:
-                traceback.print_exc()
-                print("[IGI Tools] Не удалось вставить отметку — продолжаю.")
+            elev = dem.get_elevation(pt.x, pt.y)
+            if elev is None:
+                print("[IGI Tools] Нет данных ЦМР в этой точке — блок не вставлен.")
                 continue
+            if not insert_mark(db, pt.x, pt.y, elev):
+                print("[IGI Tools] Не удалось вставить блок «СП_9.2».")
+                continue
+            print(f"[IGI Tools] Отметка Z = {elev:.2f}")
     except Exception:
         traceback.print_exc()
