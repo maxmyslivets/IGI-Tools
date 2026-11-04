@@ -51,9 +51,14 @@
 
 ## ⛰️ ЦМР и рельеф
 
-Построение горизонталей по высотным отметкам.
+Отметки высот из ЦМР и интерполяция отметок.
 
 <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; margin:24px 0;">
+
+  <a href="./elev-marks" style="display:block; padding:16px; border:1px solid var(--vp-c-divider); border-radius:8px; text-decoration:none; color:inherit; transition:border-color .2s;">
+  <div style="font-weight:600; font-size:1.05em;">Отметки из ЦМР</div>
+  <div style="font-size:.87em; opacity:.7; margin-top:4px;">IGI_ELEV_MARK, IGI_ELEV_MARK_LINES, IGI_ELEV_MARK_GRID — блоки СП_9.2 с высотой из георастра</div>
+</a>
 
   <a href="./interpolation" style="display:block; padding:16px; border:1px solid var(--vp-c-divider); border-radius:8px; text-decoration:none; color:inherit; transition:border-color .2s;">
   <div style="font-weight:600; font-size:1.05em;">Интерполяция горизонталей</div>

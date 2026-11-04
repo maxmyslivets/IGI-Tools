@@ -5,9 +5,11 @@ from igi_tools.commands import auto_align_sp92 as _auto_align_sp92  # noqa: F401
 from igi_tools.commands import check_update as _check_update  # noqa: F401
 from igi_tools.commands import buffer_poly as _buffer_poly  # noqa: F401
 from igi_tools.commands import fill_area as _fill_area  # noqa: F401
+from igi_tools.commands import dem_manager as _dem_manager  # noqa: F401
 from igi_tools.commands import dem_tracker as _dem_tracker  # noqa: F401
 from igi_tools.commands import draw_nomenclature as _draw_nomenclature  # noqa: F401
 from igi_tools.commands import gzu_from_geojson as _gzu_from_geojson  # noqa: F401
+from igi_tools.commands import elev_mark as _elev_mark  # noqa: F401
 from igi_tools.commands import manage_template as _manage_template  # noqa: F401
 from igi_tools.commands import reload_all as _reload_all  # noqa: F401
 from igi_tools.commands import get_total_area_of_nested_polygons as _get_total_area_of_nested_polygons  # noqa: F401
@@ -19,9 +21,11 @@ __all__ = [
     "check_update",
     "buffer_poly",
     "fill_area",
+    "dem_manager",
     "dem_tracker",
     "draw_nomenclature",
     "gzu_from_geojson",
+    "elev_mark",
     "manage_template",
     "reload_all",
     "get_total_area_of_nested_polygons",

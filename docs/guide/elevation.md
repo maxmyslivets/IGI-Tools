@@ -31,4 +31,5 @@
 
 - [Блоки и точки](/guide/blocks-points)
 - [Работа с колодцами](/guide/manholes)
+- [Отметки из ЦМР](/guide/elev-marks)
 - [DEM-трекер](/guide/dem-tracker)

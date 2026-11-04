@@ -1,12 +1,14 @@
-"""Отслеживание высоты DEM: мониторинг Z-значений из GeoTIFF под курсором."""
+"""Дем-трекер: визуализация высоты ЦМР под курсором в оверлее.
+
+Загруженной ЦМР (GeoTIFF) владеет сервис igi_tools.dem. Трекер на каждом
+тике читает высоту через dem.get_elevation() и не управляет её жизненным
+циклом: остановка трекера не выгружает ЦМР.
+"""
 
 from __future__ import annotations
 
-import json
-import os
 import time
 import traceback
-from pathlib import Path
 
 from pyrx import command, Ap
 
@@ -25,46 +27,11 @@ _cursor_pos = (0, 0)
 _overlay_update_pending = False
 
 
-# ─── Сохранение/загрузка последнего пути ─────────────────────────────
-
-
-def _get_settings_path() -> Path:
-    """Возвращает путь к файлу настроек в %APPDATA%/IGI-Tools."""
-    app_data = os.environ.get("APPDATA", str(Path.home()))
-    settings_dir = Path(app_data) / "IGI-Tools"
-    settings_dir.mkdir(parents=True, exist_ok=True)
-    return settings_dir / "dem_tracker_settings.json"
-
-
-def _save_last_path(tiff_path: str) -> None:
-    """Сохраняет путь к последнему файлу DEM."""
-    try:
-        with open(_get_settings_path(), "w", encoding="utf-8") as f:
-            json.dump({"last_dem_path": tiff_path}, f)
-    except Exception:
-        pass
-
-
-def _load_last_path() -> str | None:
-    """Загружает путь к последнему файлу DEM. Возвращает None, если пути нет."""
-    try:
-        settings_path = _get_settings_path()
-        if settings_path.exists():
-            with open(settings_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                path = data.get("last_dem_path", "")
-                if path and Path(path).exists():
-                    return path
-    except Exception:
-        pass
-    return None
-
-
 # ─── Остановка трекинга (внутренняя) ────────────────────────────────
 
 
 def _stop_tracking_internal() -> None:
-    """Останавливает мониторинг и закрывает dataset. НЕ закрывает окно."""
+    """Снимает монитор и сбрасывает состояние. ЦМР (igi_tools.dem) не затрагивается."""
     global tiff_monitor, _last_z_value
 
     if tiff_monitor is not None:
@@ -82,34 +49,30 @@ def _stop_tracking_internal() -> None:
 # ─── Построитель монитора ────────────────────────────────────────────
 
 
-def _build_monitor(tiff_path):
-    """Создаёт экземпляр подкласса InputPointMonitor для указанного GeoTIFF."""
+def _build_monitor():
+    """Создаёт экземпляр подкласса InputPointMonitor для отслеживания высоты."""
     from pyrx import Ed
 
-    import rasterio
-
-    dataset = rasterio.open(tiff_path)
-    print(f"\n[PyRx] DEM файл {tiff_path} подключён.\n")
-
     class _GeoTiffTrackerImpl(Ed.InputPointMonitor):
-        """InputPointMonitor, считывающий Z-значения из GeoTIFF под курсором."""
+        """InputPointMonitor, показывающий высоту ЦМР под курсором."""
 
         def __init__(self):
             Ed.InputPointMonitor.__init__(self)
-            self.dataset = dataset
             self.current_text = None
 
         def monitorInputPoint(self, input, output):
+            global _last_z_value, _last_input_time, _cursor_pos
+
             try:
                 pt = input.rawPoint()
-                generator = self.dataset.sample([(pt.x, pt.y)])
-                z_val = next(generator)[0]
+                from igi_tools import dem
 
-                if z_val < -1000 or z_val > 10000:
-                    z_val = 0.0
+                z = dem.get_elevation(pt.x, pt.y)
+                if z is None:
+                    _last_input_time = time.monotonic()
+                    return
 
-                global _last_z_value, _last_input_time, _cursor_pos
-                _last_z_value = f"{z_val:.2f}"
+                _last_z_value = f"{z:.2f}"
                 _last_input_time = time.monotonic()
 
                 # Захватываем реальную позицию мыши на экране
@@ -117,17 +80,11 @@ def _build_monitor(tiff_path):
                 # Планируем мгновенное обновление оверлея в потоке wx
                 _schedule_overlay_update()
 
-                # msg = f"\rX={pt.x:.3f}м, Y={pt.y:.3f}м | Z={z_val:.2f}м"
-                # print(msg)
-
             except Exception:
                 traceback.print_exc()
 
         def close(self):
-            try:
-                self.dataset.close()
-            except Exception:
-                pass
+            """Монитор не владеет ресурсами — закрывать нечего."""
 
     return _GeoTiffTrackerImpl()
 
@@ -249,25 +206,23 @@ def _destroy_overlay():
 # ─── Запуск трекинга (внутренний) ────────────────────────────────────
 
 
-# ─── Запуск трекинга (внутренний) ────────────────────────────────────
-
-
 def _start_tracking(tiff_path: str) -> bool:
-    """Строит монитор, запускает трекинг и открывает оверлей."""
+    """Подключает ЦМР через сервис igi_tools.dem, строит монитор и открывает оверлей."""
     global tiff_monitor, _overlay
+
+    from igi_tools import dem
 
     print(f"\n[IGI Tools] Выбран DEM: {tiff_path}")
 
+    # Уже подключённую ЦМР не перезагружаем
+    if not (dem.is_loaded() and tiff_path in dem.get_paths()):
+        if not dem.load(tiff_path):
+            return False
+
     try:
-        monitor = _build_monitor(tiff_path)
-    except ImportError:
-        print(
-            "\n[IGI Tools] Модуль 'rasterio' не установлен. "
-            "Выполните: pip install rasterio"
-        )
-        return False
+        monitor = _build_monitor()
     except Exception as exc:
-        print(f"\n[IGI Tools] Не удалось открыть растр: {exc}")
+        print(f"\n[IGI Tools] Не удалось создать монитор: {exc}")
         traceback.print_exc()
         return False
 
@@ -283,7 +238,7 @@ def _start_tracking(tiff_path: str) -> bool:
         return False
 
     tiff_monitor = monitor
-    _save_last_path(tiff_path)
+    dem.save_last_path(tiff_path)
 
     # Создать оверлей
     try:
@@ -301,39 +256,6 @@ def _start_tracking(tiff_path: str) -> bool:
 # ─── Команды ─────────────────────────────────────────────────────────
 
 
-def _switch_tiff(new_path: str):
-    """Переключает монитор на новый TIFF-файл, не пересоздавая оверлей."""
-    global tiff_monitor, _last_input_time, _overlay_update_pending
-
-    if tiff_monitor is not None:
-        try:
-            manager = Ap.curDoc().inputPointManager()
-            manager.removePointMonitor(tiff_monitor)
-        except Exception:
-            pass
-        tiff_monitor.close()
-        tiff_monitor = None
-
-    try:
-        new_monitor = _build_monitor(new_path)
-        manager = Ap.curDoc().inputPointManager()
-        manager.addPointMonitor(new_monitor)
-        tiff_monitor = new_monitor
-        _save_last_path(new_path)
-
-        global _last_z_value
-        _last_z_value = "0.00"
-        _last_input_time = time.monotonic()
-        _overlay_update_pending = False
-
-        if _overlay_text:
-            _overlay_text.SetLabel("Z: 0.00 м")
-
-        print(f"\n[IGI Tools] Переключено на DEM: {new_path}")
-    except Exception:
-        traceback.print_exc()
-
-
 @command(name="IGI_DEM_TRACKER")
 def dem_tracker():
     """Запуск/остановка мониторинга Z-значений из цифровой модели рельефа GeoTIFF."""
@@ -343,8 +265,15 @@ def dem_tracker():
         dem_tracker_stop()
         return
 
+    from igi_tools import dem
+
+    # Трекинг на уже подключённой ЦМР
+    if dem.is_loaded():
+        _start_tracking(dem.get_path())
+        return
+
     # Последний файл
-    last_path = _load_last_path()
+    last_path = dem.last_path()
     if last_path:
         print(f"\n[IGI Tools] Автоматическая загрузка: {last_path}")
         _start_tracking(last_path)
@@ -368,25 +297,17 @@ def dem_tracker():
     _start_tracking(tiff_path)
 
 
-@command(name="IGI_DEM_TRACKER_SELECT_FILE")
+@command(name="IGI_DEM_MANAGER")
 def dem_tracker_select_file():
-    """Выбор нового GeoTIFF для активного мониторинга DEM."""
+    """Открывает окно управления подключёнными ЦМР."""
 
-    from pyrx import Ed
+    from igi_tools.commands.dem_manager import _show_dialog
 
     try:
-        new_path = Ed.Core.getFileD(
-            "Select GeoTIFF (DEM)", "", "tif;tiff", 0
-        )
-        if not new_path:
-            print("\n[IGI Tools] Выбор файла отменён.")
-            return
+        _show_dialog()
     except Exception:
-        print("\n[IGI Tools] Ошибка открытия диалога выбора файла.")
+        print("\n[IGI Tools] Ошибка открытия диалога управления ЦМР.")
         traceback.print_exc()
-        return
-
-    _switch_tiff(new_path)
 
 
 @command(name="IGI_DEM_TRACKER_STOP")
@@ -398,5 +319,6 @@ def dem_tracker_stop():
         _destroy_overlay()
         _stop_tracking_internal()
         print("\n[IGI Tools] Мониторинг DEM остановлен.")
+        print("\n[IGI Tools] ЦМР остаётся подключённой для других инструментов.")
     else:
         print("\n[IGI Tools] Активный мониторинг DEM отсутствует.")
