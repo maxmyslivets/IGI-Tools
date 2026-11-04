@@ -241,7 +241,7 @@ def mark_grid() -> None:
         if not dem.is_loaded():
             print(
                 "[IGI Tools] ЦМР не загружена. "
-                "Запустите IGI_DEM_TRACKER для подключения георастра."
+                "Запустите IGI_DEM_MANAGER для подключения георастра."
             )
             return
 

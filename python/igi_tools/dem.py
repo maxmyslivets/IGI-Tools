@@ -1,4 +1,4 @@
-"""Сервис ЦМР: единственный владелец загруженного GeoTIFF (rasterio)."""
+"""Сервис ЦМР: единственный владелец подключённых GeoTIFF (rasterio)."""
 
 from __future__ import annotations
 
@@ -10,25 +10,55 @@ from pathlib import Path
 NODATA_MIN = -1000.0
 NODATA_MAX = 10000.0
 
-_dataset = None
-_path: str | None = None
+# Путь -> {"dataset": rasterio dataset, "active": bool}. Порядок = порядок подключения.
+_dems: dict[str, dict] = {}
+
+
+# ─── Состояние ────────────────────────────────────────────────────────
 
 
 def is_loaded() -> bool:
-    """True, если ЦМР подключена."""
-    return _dataset is not None
+    """True, если подключена хотя бы одна ЦМР."""
+    return bool(_dems)
+
+
+def get_paths() -> list[str]:
+    """Пути всех подключённых ЦМР в порядке подключения."""
+    return list(_dems)
 
 
 def get_path() -> str | None:
-    """Путь к подключённой ЦМР или None."""
-    return _path
+    """Путь основной (последней подключённой) ЦМР или None."""
+    for path in reversed(get_paths()):
+        return path
+    return None
 
 
-def load(path: str) -> bool:
-    """Подключает GeoTIFF. False при ошибке, True при успехе."""
-    global _dataset, _path
-    if is_loaded():
-        unload()
+def get_active_paths() -> list[str]:
+    """Пути активных ЦМР, используемых для определения высот."""
+    return [p for p, info in _dems.items() if info["active"]]
+
+
+def is_active(path: str) -> bool:
+    """Активна ли ЦМР по пути."""
+    info = _dems.get(path)
+    return bool(info and info["active"])
+
+
+def set_active(path: str, active: bool) -> None:
+    """Включает/выключает ЦМР для определения высот."""
+    info = _dems.get(path)
+    if info is None:
+        return
+    info["active"] = bool(active)
+
+
+def load(path: str, active: bool = True) -> bool:
+    """Подключает GeoTIFF, не выгружая остальные. False при ошибке."""
+    if path in _dems:
+        _dems[path]["active"] = _dems[path]["active"] or active
+        save_last_path(path)
+        return True
     try:
         import rasterio
     except ImportError:
@@ -41,44 +71,60 @@ def load(path: str) -> bool:
         traceback.print_exc()
         print(f"[IGI Tools] Ошибка: не удалось открыть ЦМР: {path}")
         return False
-    _dataset = dataset
-    _path = path
+    _dems[path] = {"dataset": dataset, "active": bool(active)}
+    save_last_path(path)
     print(f"[IGI Tools] ЦМР подключена: {path}")
     return True
 
 
-def unload() -> None:
-    """Закрывает dataset и сбрасывает состояние."""
-    global _dataset, _path
-    if _dataset is not None:
-        try:
-            _dataset.close()
-        except Exception:
-            traceback.print_exc()
-    _dataset = None
-    _path = None
+def unload(path: str | None = None) -> None:
+    """Закрывает одну ЦМР (по пути) или все сразу, если path не задан."""
+    global _dems
+    if path is None:
+        for info in _dems.values():
+            _close_dataset(info["dataset"])
+        _dems = {}
+    else:
+        info = _dems.pop(path, None)
+        if info is not None:
+            _close_dataset(info["dataset"])
+    _persist()
+
+
+def _close_dataset(dataset) -> None:
+    try:
+        dataset.close()
+    except Exception:
+        traceback.print_exc()
 
 
 def get_elevation(x: float, y: float) -> float | None:
-    """Высота в точке (x, y) или None, если ЦМР не подключена или точка вне ЦМР."""
-    if not is_loaded():
+    """Высота в точке (x, y) из первой активной ЦМР с данными, или None."""
+    if not _dems:
         return None
     try:
         import math
         import numpy as np
-        z_raw = next(_dataset.sample([(x, y)], masked=True))[0]
-        if np.ma.is_masked(z_raw):
-            return None
-        z = float(z_raw)
-        if math.isnan(z) or z < NODATA_MIN or z > NODATA_MAX:
-            return None
-        return z
+
+        for path, info in _dems.items():
+            if not info["active"]:
+                continue
+            try:
+                z_raw = next(info["dataset"].sample([(x, y)], masked=True))[0]
+            except Exception:
+                continue
+            if np.ma.is_masked(z_raw):
+                continue
+            z = float(z_raw)
+            if math.isnan(z) or z < NODATA_MIN or z > NODATA_MAX:
+                continue
+            return z
     except Exception:
         traceback.print_exc()
-        return None
+    return None
 
 
-# ─── Последний путь ЦМР (настройки в %APPDATA%/IGI-Tools) ─────────────
+# ─── Настройки в %APPDATA%/IGI-Tools ─────────────────────────────────
 
 
 def _get_settings_path() -> Path:
@@ -89,38 +135,58 @@ def _get_settings_path() -> Path:
     return settings_dir / "dem_tracker_settings.json"
 
 
-def _save_last_path(tiff_path: str) -> None:
-    """Сохраняет путь к последнему файлу DEM."""
+def _load_settings() -> dict:
+    """Загружает настройки из JSON."""
+    try:
+        with open(_get_settings_path(), "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_settings(data: dict) -> None:
+    """Сохраняет настройки в JSON."""
     try:
         with open(_get_settings_path(), "w", encoding="utf-8") as f:
-            json.dump({"last_dem_path": tiff_path}, f)
+            json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
 
 
-def _load_last_path() -> str | None:
-    """Загружает путь к последнему файлу DEM. Возвращает None, если пути нет."""
-    try:
-        settings_path = _get_settings_path()
-        if settings_path.exists():
-            with open(settings_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                path = data.get("last_dem_path", "")
-                if path and Path(path).exists():
-                    return path
-    except Exception:
-        pass
-    return None
+def _persist() -> None:
+    """Сохраняет список подключённых ЦМР (пути + активность)."""
+    data = _load_settings()
+    data["dems"] = [
+        {"path": p, "active": info["active"]} for p, info in _dems.items()
+    ]
+    last = get_path()
+    if last is not None:
+        data["last_dem_path"] = last
+    _save_settings(data)
 
 
 def last_path() -> str | None:
     """Путь к последней ЦМР из файла настроек или None."""
-    path = _load_last_path()
-    if path is not None and not Path(path).exists():
-        return None
-    return path
+    path = _load_settings().get("last_dem_path", "")
+    if path and Path(path).exists():
+        return path
+    return None
 
 
 def save_last_path(path: str) -> None:
     """Сохраняет путь к последней ЦМР в файл настроек."""
-    _save_last_path(path)
+    data = _load_settings()
+    data["last_dem_path"] = path
+    # для консистентности обновляем путь в списке, если он уже есть
+    dems = data.get("dems", [])
+    found = False
+    for item in dems:
+        if item.get("path") == path:
+            item["active"] = True
+            found = True
+            break
+    if not found:
+        dems.append({"path": path, "active": True})
+        data["dems"] = dems
+    _save_settings(data)

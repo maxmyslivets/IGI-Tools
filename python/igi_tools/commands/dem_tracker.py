@@ -215,7 +215,7 @@ def _start_tracking(tiff_path: str) -> bool:
     print(f"\n[IGI Tools] Выбран DEM: {tiff_path}")
 
     # Уже подключённую ЦМР не перезагружаем
-    if not (dem.is_loaded() and dem.get_path() == tiff_path):
+    if not (dem.is_loaded() and tiff_path in dem.get_paths()):
         if not dem.load(tiff_path):
             return False
 
@@ -254,26 +254,6 @@ def _start_tracking(tiff_path: str) -> bool:
 
 
 # ─── Команды ─────────────────────────────────────────────────────────
-
-
-def _switch_tiff(new_path: str):
-    """Переключает ЦМР в сервисе на новый TIFF-файл, не трогая монитор."""
-    global _last_z_value, _last_input_time, _overlay_update_pending
-
-    from igi_tools import dem
-
-    if not dem.load(new_path):
-        print("[IGI Tools] Не удалось переключить ЦМР.")
-        return
-
-    _last_z_value = "0.00"
-    _last_input_time = time.monotonic()
-    _overlay_update_pending = False
-
-    if _overlay_text:
-        _overlay_text.SetLabel("Z: 0.00 м")
-
-    print(f"\n[IGI Tools] Переключено на DEM: {new_path}")
 
 
 @command(name="IGI_DEM_TRACKER")
@@ -317,25 +297,17 @@ def dem_tracker():
     _start_tracking(tiff_path)
 
 
-@command(name="IGI_DEM_TRACKER_SELECT_FILE")
+@command(name="IGI_DEM_MANAGER")
 def dem_tracker_select_file():
-    """Выбор нового GeoTIFF для активного мониторинга DEM."""
+    """Открывает окно управления подключёнными ЦМР."""
 
-    from pyrx import Ed
+    from igi_tools.commands.dem_manager import _show_dialog
 
     try:
-        new_path = Ed.Core.getFileD(
-            "Select GeoTIFF (DEM)", "", "tif;tiff", 0
-        )
-        if not new_path:
-            print("\n[IGI Tools] Выбор файла отменён.")
-            return
+        _show_dialog()
     except Exception:
-        print("\n[IGI Tools] Ошибка открытия диалога выбора файла.")
+        print("\n[IGI Tools] Ошибка открытия диалога управления ЦМР.")
         traceback.print_exc()
-        return
-
-    _switch_tiff(new_path)
 
 
 @command(name="IGI_DEM_TRACKER_STOP")
