@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Якорь сетки (прозрачный) -->
+  <rect width="32" height="32" fill="none"/>
+
+  <!-- БАЗА: полилиния, вдоль которой расставляются отметки -->
+  <path d="M 2.5,25 L 12,14 L 21,19 L 29.5,6" fill="none" stroke="#D9D9D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 2.5,25 L 12,14 L 21,19 L 29.5,6" fill="none" stroke="#666666" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
+
+  <!-- МОДИФИКАТОР: узлы отметок на линии — главный акцент -->
+  <circle cx="7.2" cy="19.7" r="2.2" fill="#89CBFA"/>
+  <circle cx="12" cy="14" r="2.2" fill="#89CBFA"/>
+  <circle cx="21" cy="19" r="2.2" fill="#89CBFA"/>
+
+  <!-- БАЗА: подписи отметок под узлами -->
+  <rect x="4.6" y="24.6" width="5.2" height="1.6" rx="0.8" fill="#D9D9D9" stroke="#666666" stroke-width="0.6"/>
+  <rect x="18.4" y="23.9" width="5.2" height="1.6" rx="0.8" fill="#D9D9D9" stroke="#666666" stroke-width="0.6"/>
+
+  <!-- Процесс: направление обхода линии — зелёный -->
+  <polyline points="26,4.5 29.8,6 26,7.5" fill="none" stroke="#82D99F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

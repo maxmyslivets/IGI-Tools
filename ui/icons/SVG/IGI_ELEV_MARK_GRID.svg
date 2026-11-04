@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Якорь сетки (прозрачный) -->
+  <rect width="32" height="32" fill="none"/>
+
+  <!-- БАЗА: граница области построения -->
+  <polygon points="3,5 27,3 29,26 5,28" fill="#D9D9D9" fill-opacity="0.35" stroke="#666666" stroke-width="1.2" stroke-linejoin="round"/>
+
+  <!-- БАЗА: линии сетки -->
+  <line x1="11" y1="4.3" x2="13" y2="27.3" stroke="#808080" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
+  <line x1="19" y1="3.7" x2="21" y2="26.6" stroke="#808080" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
+  <line x1="3.7" y1="12" x2="28.7" y2="10.3" stroke="#808080" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
+  <line x1="4.3" y1="19.3" x2="29" y2="17.7" stroke="#808080" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- МОДИФИКАТОР: отметки в узлах сетки — главный акцент -->
+  <circle cx="11.6" cy="10.7" r="1.7" fill="#89CBFA"/>
+  <circle cx="21.2" cy="15.4" r="1.7" fill="#89CBFA"/>
+  <circle cx="7.2" cy="20.4" r="1.7" fill="#89CBFA"/>
+  <circle cx="17.6" cy="24.1" r="1.7" fill="#89CBFA"/>
+
+  <!-- БАЗА: прочие узлы — нейтральные маркеры -->
+  <circle cx="6.6" cy="6.5" r="1.1" fill="#D9D9D9" stroke="#666666" stroke-width="0.7"/>
+  <circle cx="15.6" cy="4.6" r="1.1" fill="#D9D9D9" stroke="#666666" stroke-width="0.7"/>
+  <circle cx="25.4" cy="7.6" r="1.1" fill="#D9D9D9" stroke="#666666" stroke-width="0.7"/>
+  <circle cx="27" cy="21.9" r="1.1" fill="#D9D9D9" stroke="#666666" stroke-width="0.7"/>
+
+  <!-- Процесс: шаг сетки — зелёный размер -->
+  <line x1="5" y1="30" x2="13" y2="29.3" stroke="#82D99F" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="5" y1="28.6" x2="5" y2="31.2" stroke="#82D99F" stroke-width="1.2" stroke-linecap="round"/>
+  <line x1="13" y1="27.9" x2="13" y2="30.5" stroke="#82D99F" stroke-width="1.2" stroke-linecap="round"/>
+</svg>
