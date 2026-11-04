@@ -46,6 +46,7 @@ export default defineConfig({
             collapsed: true,
             items: [
               { text: 'Подключить ЦМР', link: '/guide/open-dem' },
+              { text: 'Отметки из ЦМР', link: '/guide/elev-marks' },
               { text: 'Интерполяция горизонталей', link: '/guide/interpolation' },
             ]
           },
