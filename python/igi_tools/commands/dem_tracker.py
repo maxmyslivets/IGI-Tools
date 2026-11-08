@@ -9,22 +9,66 @@ from __future__ import annotations
 
 import time
 import traceback
+from dataclasses import dataclass
 
 from pyrx import command, Ap
 
 
-# Глобальное состояние
-# ——— монитор ———
-tiff_monitor = None
-# ——— оверлей ———
-_overlay = None
-_overlay_text = None
-_overlay_shown = False
-# ——— данные с последнего тика monitorInputPoint ———
-_last_z_value = "0.00"
-_last_input_time = 0.0
-_cursor_pos = (0, 0)
-_overlay_update_pending = False
+@dataclass
+class _TrackerState:
+    monitor: object = None           # _GeoTiffTrackerImpl instance
+    overlay: object = None           # wx.Frame
+    overlay_text: object = None      # wx.StaticText
+    overlay_shown: bool = False
+    last_z_value: str = "—"
+    cursor_pos: tuple = (0, 0)
+    enabled: bool = False            # user explicitly turned tracker ON
+    overlay_update_pending: bool = False
+    reactor: object = None           # Ap.DocManagerReactor
+    tiff_path: str = ""              # last used DEM path (to reattach on doc switch)
+    autocad_hwnd: int = 0
+    last_input_time: float = 0.0
+
+
+_state = _TrackerState()
+
+
+class _TrackerDocReactor(Ap.DocManagerReactor):
+    """Переподключает монитор к активному документу при переключении."""
+
+    def documentToBeDeactivated(self, doc, /):
+        try:
+            if _state.monitor is None:
+                return
+            try:
+                doc.inputPointManager().removePointMonitor(_state.monitor)
+            except Exception:
+                pass
+            try:
+                _state.monitor.close()
+            except Exception:
+                pass
+            _state.monitor = None
+        except Exception:
+            traceback.print_exc()
+
+    def documentActivated(self, doc, /):
+        try:
+            if not _state.enabled or _state.monitor is not None:
+                return
+            _attach_monitor_to_doc(doc)
+            _create_overlay()
+        except Exception:
+            traceback.print_exc()
+
+    def documentToBeDestroyed(self, doc, /):
+        try:
+            _destroy_overlay()
+            # SAFE: close monitor WITHOUT touching the dying document's InputPointManager
+            _close_monitor()
+            _state.enabled = False
+        except Exception:
+            traceback.print_exc()
 
 
 # ─── Остановка трекинга (внутренняя) ────────────────────────────────
@@ -32,18 +76,31 @@ _overlay_update_pending = False
 
 def _stop_tracking_internal() -> None:
     """Снимает монитор и сбрасывает состояние. ЦМР (igi_tools.dem) не затрагивается."""
-    global tiff_monitor, _last_z_value
-
-    if tiff_monitor is not None:
+    if _state.reactor is not None:
         try:
-            manager = Ap.curDoc().inputPointManager()
-            manager.removePointMonitor(tiff_monitor)
+            _state.reactor.removeReactor()
         except Exception:
             pass
-        tiff_monitor.close()
-        tiff_monitor = None
+        _state.reactor = None
+    if _state.monitor is not None:
+        try:
+            Ap.curDoc().inputPointManager().removePointMonitor(_state.monitor)
+        except Exception:
+            pass
+        _close_monitor()
+    _state.last_z_value = "—"
+    _state.enabled = False
 
-    _last_z_value = "0.00"
+
+def _close_monitor() -> None:
+    """Закрывает Python-объект монитора, не трогая InputPointManager документа."""
+    if _state.monitor is not None:
+        try:
+            _state.monitor.close()
+        except Exception:
+            pass
+        _state.monitor = None
+        _state.last_z_value = "—"
 
 
 # ─── Построитель монитора ────────────────────────────────────────────
@@ -54,37 +111,23 @@ def _build_monitor():
     from pyrx import Ed
 
     class _GeoTiffTrackerImpl(Ed.InputPointMonitor):
-        """InputPointMonitor, показывающий высоту ЦМР под курсором."""
-
         def __init__(self):
             Ed.InputPointMonitor.__init__(self)
-            self.current_text = None
 
         def monitorInputPoint(self, input, output):
-            global _last_z_value, _last_input_time, _cursor_pos
-
             try:
                 pt = input.rawPoint()
                 from igi_tools import dem
 
                 z = dem.get_elevation(pt.x, pt.y)
-                if z is None:
-                    _last_input_time = time.monotonic()
-                    return
-
-                _last_z_value = f"{z:.2f}"
-                _last_input_time = time.monotonic()
-
-                # Захватываем реальную позицию мыши на экране
-                _cursor_pos = _get_cursor_screen_pos()
-                # Планируем мгновенное обновление оверлея в потоке wx
+                _state.last_z_value = "—" if z is None else f"{z:.2f}"
+                _state.last_input_time = time.monotonic()
                 _schedule_overlay_update()
-
             except Exception:
                 traceback.print_exc()
 
         def close(self):
-            """Монитор не владеет ресурсами — закрывать нечего."""
+            pass
 
     return _GeoTiffTrackerImpl()
 
@@ -105,7 +148,7 @@ def _get_cursor_screen_pos():
 
 
 def _make_window_clickthrough(window):
-    """Делает wx-окно прозрачным для мыши — клики/наведение проходят сквозь него."""
+    """Делает wx-окно прозрачным для мыши."""
     import ctypes
 
     hwnd = window.GetHandle()
@@ -118,117 +161,135 @@ def _make_window_clickthrough(window):
     ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new_style)
 
 
-# ─── Асинхронное обновление оверлея ─────────────────────────────────
+# ─── Оверлей и обновление позиции ───────────────────────────────────
 
 
 def _schedule_overlay_update():
-    """Планирует перемещение оверлея через wx.CallAfter (не чаще 1 раза)."""
-    global _overlay_update_pending
-    if _overlay_update_pending:
+    """Планирует перенос оверлея через wx.CallAfter; один pending-вызов за раз."""
+    if _state.overlay_update_pending:
         return
-    _overlay_update_pending = True
-    import wx
+    _state.overlay_update_pending = True
+    try:
+        import wx
 
-    wx.CallAfter(_apply_overlay_position)
+        wx.CallAfter(_apply_overlay_position)
+    except Exception:
+        _state.overlay_update_pending = False
+        traceback.print_exc()
 
 
 def _apply_overlay_position():
-    """Применяет последнюю позицию курсора к оверлею и обновляет текст с высотой."""
-    import wx
-
-    global _overlay_update_pending, _overlay, _overlay_text, _cursor_pos, _last_z_value
-    _overlay_update_pending = False
-    if _overlay is None:
-        return
+    """Двигает оверлей за курсором, обновляет метку, прячет при сворачивании AutoCAD."""
     try:
-        _overlay.SetPosition(wx.Point(_cursor_pos[0] + 30, _cursor_pos[1] - 30))
-        if _overlay_text is not None:
-            _overlay_text.SetLabel(f"Z: {_last_z_value} м")
+        _state.overlay_update_pending = False
+        if _state.overlay is None:
+            return
+        import wx
+
+        _state.cursor_pos = _get_cursor_screen_pos()
+        overlay = _state.overlay
+        overlay.Move(wx.Point(_state.cursor_pos[0] + 7, _state.cursor_pos[1] - 30))
+        if _state.overlay_text is not None:
+            _state.overlay_text.SetLabel(f"Z: {_state.last_z_value} м")
+        if _state.autocad_hwnd:
+            import ctypes
+
+            minimized = bool(ctypes.windll.user32.IsIconic(_state.autocad_hwnd))
+            hidden = minimized or not bool(
+                ctypes.windll.user32.IsWindowVisible(_state.autocad_hwnd)
+            )
+            if hidden and _state.overlay_shown:
+                overlay.Hide()
+                _state.overlay_shown = False
+            elif not hidden and not _state.overlay_shown:
+                overlay.Show()
+                _state.overlay_shown = True
     except Exception:
+        # Оверлей может быть уничтожен в момент вызова
         pass
-
-
-# ─── Оверлей (только текст Z, без окна) ────────────────────────────
 
 
 def _create_overlay():
     """Создаёт прозрачный оверлей с Z-высотой, следующий за курсором."""
+    if _state.overlay is not None:
+        return _state.overlay
     import wx
-    from pyrx import Ap
 
-    global _overlay, _overlay_text, _overlay_shown
+    try:
+        _res = Ap.ResourceOverride()
+        overlay = wx.Frame(
+            None, -1, "",
+            style=wx.FRAME_NO_TASKBAR | wx.BORDER_NONE,
+            size=wx.Size(100, 40),
+        )
+        overlay.SetBackgroundColour(wx.Colour(20, 20, 20))
+        overlay.SetTransparent(200)
+        _make_window_clickthrough(overlay)
+        if _state.autocad_hwnd:
+            import ctypes
 
-    _res = Ap.ResourceOverride()
+            overlay_hwnd = overlay.GetHandle()
+            GWLP_HWNDPARENT = -8
+            ctypes.windll.user32.SetWindowLongPtrW(
+                overlay_hwnd, GWLP_HWNDPARENT, _state.autocad_hwnd
+            )
 
-    overlay = wx.Frame(
-        None, -1, "",
-        style=wx.FRAME_NO_TASKBAR | wx.STAY_ON_TOP | wx.BORDER_NONE,
-        size=wx.Size(140, 32),
-    )
-    overlay.SetBackgroundColour(wx.Colour(20, 20, 20))
-    overlay.SetTransparent(200)
-    _make_window_clickthrough(overlay)
+        text = wx.StaticText(overlay, -1, f"Z: {_state.last_z_value} м")
+        text.SetFont(
+            wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_LIGHT)
+        )
+        text.SetForegroundColour(wx.WHITE)
 
-    text = wx.StaticText(overlay, -1, "Z: 0.00 м")
-    text.SetFont(
-        wx.Font(9, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_LIGHT)
-    )
-    text.SetForegroundColour(wx.WHITE)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(text, 1, wx.ALIGN_LEFT | wx.ALL, 4)
+        overlay.SetSizer(sizer)
+        sizer.Fit(overlay)
+        w, h = overlay.GetSize()
+        overlay.SetMinSize(wx.Size(max(w, 80), max(h, 16)))
+        overlay.SetSize(wx.Size(max(w, 80), max(h, 16)))
+        overlay.Show()
 
-    sizer = wx.BoxSizer(wx.VERTICAL)
-    sizer.Add(text, 1, wx.ALIGN_CENTER | wx.ALL, 4)
-    overlay.SetSizer(sizer)
-    sizer.Fit(overlay)
-    overlay.Show()
-
-    _overlay = overlay
-    _overlay_text = text
-    _overlay_shown = True
-    return overlay
+        _state.overlay = overlay
+        _state.overlay_text = text
+        _state.overlay_shown = True
+        return overlay
+    except Exception as exc:
+        print(
+            "\n[IGI Tools] Не удалось открыть оверлей. "
+            f"Трекинг работает в консоли. Ошибка: {exc}"
+        )
+        traceback.print_exc()
+        return None
 
 
 def _destroy_overlay():
-    """Уничтожает оверлей и сбрасывает глобалы."""
-    global _overlay, _overlay_text, _overlay_shown, _overlay_update_pending, _cursor_pos
-    _overlay_update_pending = False
-    _cursor_pos = (0, 0)
-    if _overlay is not None:
+    """Уничтожает оверлей и сбрасывает состояние."""
+    _state.overlay_update_pending = False
+    _state.cursor_pos = (0, 0)
+    if _state.overlay is not None:
         try:
-            _overlay.Close()
-            _overlay.Destroy()
+            _state.overlay.Close()
+            _state.overlay.Destroy()
         except Exception:
             pass
-        _overlay = None
-        _overlay_text = None
-        _overlay_shown = False
+        _state.overlay = None
+        _state.overlay_text = None
+        _state.overlay_shown = False
 
 
-# ─── Запуск трекинга (внутренний) ────────────────────────────────────
+# ─── Подключение монитора к документу ────────────────────────────────
 
 
-def _start_tracking(tiff_path: str) -> bool:
-    """Подключает ЦМР через сервис igi_tools.dem, строит монитор и открывает оверлей."""
-    global tiff_monitor, _overlay
-
-    from igi_tools import dem
-
-    print(f"\n[IGI Tools] Выбран DEM: {tiff_path}")
-
-    # Уже подключённую ЦМР не перезагружаем
-    if not (dem.is_loaded() and tiff_path in dem.get_paths()):
-        if not dem.load(tiff_path):
-            return False
-
+def _attach_monitor_to_doc(doc) -> bool:
+    """Создаёт монитор и регистрирует его в inputPointManager документа."""
     try:
         monitor = _build_monitor()
     except Exception as exc:
         print(f"\n[IGI Tools] Не удалось создать монитор: {exc}")
         traceback.print_exc()
         return False
-
     try:
-        manager = Ap.curDoc().inputPointManager()
-        manager.addPointMonitor(monitor)
+        doc.inputPointManager().addPointMonitor(monitor)
     except AttributeError as exc:
         print(
             "\n[IGI Tools] Ваша версия PyRx не поддерживает addPointMonitor. "
@@ -236,19 +297,43 @@ def _start_tracking(tiff_path: str) -> bool:
         )
         monitor.close()
         return False
+    _state.monitor = monitor
+    return True
 
-    tiff_monitor = monitor
-    dem.save_last_path(tiff_path)
 
-    # Создать оверлей
+# ─── Запуск трекинга ────────────────────────────────────────────────
+
+
+def _start_tracking(tiff_path: str) -> bool:
+    """Подключает ЦМР через сервис igi_tools.dem, строит монитор и открывает оверлей."""
+    from igi_tools import dem
+
+    print(f"\n[IGI Tools] Выбран DEM: {tiff_path}")
+    if not (dem.is_loaded() and tiff_path in dem.get_paths()):
+        if not dem.load(tiff_path):
+            return False
+
+    _state.enabled = True
+    _state.tiff_path = tiff_path
     try:
-        _create_overlay()
-    except Exception as exc:
-        print(
-            "\n[IGI Tools] Не удалось открыть оверлей. "
-            f"Трекинг работает в консоли. Ошибка: {exc}"
-        )
+        _state.autocad_hwnd = Ap.Application.mainWnd() or 0
+    except Exception:
+        _state.autocad_hwnd = 0
 
+    if _state.reactor is None:
+        try:
+            reactor = _TrackerDocReactor()
+            reactor.addReactor()
+            _state.reactor = reactor
+        except Exception as exc:
+            print(f"\n[IGI Tools] Не удалось зарегистрировать реактор документов: {exc}")
+            _state.reactor = None
+
+    if not _attach_monitor_to_doc(Ap.curDoc()):
+        return False
+
+    dem.save_last_path(tiff_path)
+    _create_overlay()
     print("\n[IGI Tools] Мониторинг DEM запущен.")
     return True
 
@@ -259,33 +344,26 @@ def _start_tracking(tiff_path: str) -> bool:
 @command(name="IGI_DEM_TRACKER")
 def dem_tracker():
     """Запуск/остановка мониторинга Z-значений из цифровой модели рельефа GeoTIFF."""
-    global tiff_monitor
-
-    if tiff_monitor is not None:
+    if _state.enabled:
         dem_tracker_stop()
         return
 
     from igi_tools import dem
 
-    # Трекинг на уже подключённой ЦМР
     if dem.is_loaded():
         _start_tracking(dem.get_path())
         return
 
-    # Последний файл
     last_path = dem.last_path()
     if last_path:
         print(f"\n[IGI Tools] Автоматическая загрузка: {last_path}")
         _start_tracking(last_path)
         return
 
-    # Запросить файл
     from pyrx import Ed
 
     try:
-        tiff_path = Ed.Core.getFileD(
-            "Select GeoTIFF (DEM)", "", "tif;tiff", 0
-        )
+        tiff_path = Ed.Core.getFileD("Select GeoTIFF (DEM)", "", "tif;tiff", 0)
         if not tiff_path:
             print("\n[IGI Tools] Выбор файла отменён.")
             return
@@ -300,7 +378,6 @@ def dem_tracker():
 @command(name="IGI_DEM_MANAGER")
 def dem_tracker_select_file():
     """Открывает окно управления подключёнными ЦМР."""
-
     from igi_tools.commands.dem_manager import _show_dialog
 
     try:
@@ -313,9 +390,7 @@ def dem_tracker_select_file():
 @command(name="IGI_DEM_TRACKER_STOP")
 def dem_tracker_stop():
     """Остановка мониторинга Z-значений из GeoTIFF и закрытие оверлея."""
-    global tiff_monitor
-
-    if tiff_monitor is not None:
+    if _state.enabled:
         _destroy_overlay()
         _stop_tracking_internal()
         print("\n[IGI Tools] Мониторинг DEM остановлен.")
