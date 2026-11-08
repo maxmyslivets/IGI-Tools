@@ -16,6 +16,9 @@ def OnPyInitApp() -> None:
             sys.path.insert(0, base)
         import igi_tools.commands  # noqa: F401
 
+        from igi_tools.dem import restore as _restore_dems
+        _restore_dems()
+
         from igi_tools.updater import get_installed_version, schedule_update_check
 
         ver = get_installed_version()
