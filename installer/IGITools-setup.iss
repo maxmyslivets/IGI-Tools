@@ -374,14 +374,103 @@ begin
     PopulateVersionCheckPage;
 end;
 
+var
+  FinishPage: TWizardPage;
+
+{-- URL helpers -----------------------------------------------------------}
+
+procedure OpenDocLink(Sender: TObject);
+var
+  ErrorCode: Integer;
+begin
+  ShellExec('open', 'https://maxmyslivets.github.io/IGI-Tools/', '', '', SW_SHOW, ewNoWait, ErrorCode);
+end;
+
+procedure OpenTelegramLink(Sender: TObject);
+var
+  ErrorCode: Integer;
+begin
+  ShellExec('open', 'https://t.me/igitools', '', '', SW_SHOW, ewNoWait, ErrorCode);
+end;
+
+{-- Finish page -----------------------------------------------------------}
+
+procedure CreateFinishPage;
+var
+  DescLabel: TNewStaticText;
+  PathLabel: TNewStaticText;
+  DocLabel: TNewStaticText;
+  DocBtn: TButton;
+  TgLabel: TNewStaticText;
+  TgBtn: TButton;
+begin
+  FinishPage := CreateCustomPage(
+    wpInfoAfter,
+    'Установка завершена',
+    'IGI Tools успешно установлен.'
+  );
+
+  DescLabel := TNewStaticText.Create(FinishPage);
+  DescLabel.Parent := FinishPage.Surface;
+  DescLabel.Left := 0;
+  DescLabel.Top := 8;
+  DescLabel.Width := FinishPage.SurfaceWidth;
+  DescLabel.Height := 20;
+  DescLabel.Caption := 'Плагин установлен в папку:';
+  DescLabel.Font.Style := [fsBold];
+
+  PathLabel := TNewStaticText.Create(FinishPage);
+  PathLabel.Parent := FinishPage.Surface;
+  PathLabel.Left := 0;
+  PathLabel.Top := 30;
+  PathLabel.Width := FinishPage.SurfaceWidth;
+  PathLabel.Height := 20;
+  PathLabel.Caption := ExpandConstant('{app}');
+  PathLabel.Font.Size := 9;
+
+  DocLabel := TNewStaticText.Create(FinishPage);
+  DocLabel.Parent := FinishPage.Surface;
+  DocLabel.Left := 0;
+  DocLabel.Top := 70;
+  DocLabel.Width := FinishPage.SurfaceWidth;
+  DocLabel.Height := 20;
+  DocLabel.Caption := 'Документация:';
+  DocLabel.Font.Style := [fsBold];
+
+  DocBtn := TButton.Create(FinishPage);
+  DocBtn.Parent := FinishPage.Surface;
+  DocBtn.Left := 0;
+  DocBtn.Top := 92;
+  DocBtn.Width := 420;
+  DocBtn.Height := 28;
+  DocBtn.Caption := 'https://maxmyslivets.github.io/IGI-Tools/';
+  DocBtn.OnClick := @OpenDocLink;
+  DocBtn.Cursor := crHand;
+
+  TgLabel := TNewStaticText.Create(FinishPage);
+  TgLabel.Parent := FinishPage.Surface;
+  TgLabel.Left := 0;
+  TgLabel.Top := 140;
+  TgLabel.Width := FinishPage.SurfaceWidth;
+  TgLabel.Height := 20;
+  TgLabel.Caption := 'Telegram-сообщество:';
+  TgLabel.Font.Style := [fsBold];
+
+  TgBtn := TButton.Create(FinishPage);
+  TgBtn.Parent := FinishPage.Surface;
+  TgBtn.Left := 0;
+  TgBtn.Top := 162;
+  TgBtn.Width := 250;
+  TgBtn.Height := 28;
+  TgBtn.Caption := 'https://t.me/igitools';
+  TgBtn.OnClick := @OpenTelegramLink;
+  TgBtn.Cursor := crHand;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
   begin
-    MsgBox(
-      'IGI Tools установлен в:' + #13#10 +
-      ExpandConstant('{app}') + #13#10 + #13#10 +
-      'Перезапустите AutoCAD / Civil 3D.',
-      mbInformation, MB_OK);
+    CreateFinishPage;
   end;
 end;

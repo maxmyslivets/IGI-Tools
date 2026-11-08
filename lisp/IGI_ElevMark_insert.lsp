@@ -1,3 +1,9 @@
+;; Вспомогательная функция: гарантированное форматирование реального числа
+;; с двумя знаками после запятой, включая незначащие нули.
+(defun _rtos2d (val)
+  (strcat (itoa (fix val)) "."
+          (substr (rtos (rem val 1) 2 3) 3 2)))
+
 (defun igi-em-undo ( / bobj res)
   "Удалить последний вставленный блок отметки. Возвращает OK или EMPTY."
   (if (not igi_em_stack)
@@ -61,7 +67,7 @@
              (setq attribs (vlax-invoke bobj 'GetAttributes))
              (foreach attr attribs
                (if (= (strcase (vla-get-TagString attr)) "Z")
-                 (vla-put-TextString attr (rtos elev 2 2))
+                 (vla-put-TextString attr (_rtos2d elev))
                )
              )
 

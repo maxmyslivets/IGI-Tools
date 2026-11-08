@@ -174,6 +174,16 @@ def last_path() -> str | None:
     return None
 
 
+def restore() -> None:
+    """Восстанавливает подключённые ЦМР из файла настроек (последняя сессия)."""
+    data = _load_settings()
+    for item in data.get("dems", []):
+        path = item.get("path", "")
+        active = item.get("active", True)
+        if path and Path(path).exists():
+            load(path, active=active)
+
+
 def save_last_path(path: str) -> None:
     """Сохраняет путь к последней ЦМР в файл настроек."""
     data = _load_settings()

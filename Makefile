@@ -7,6 +7,7 @@
 #   make installer ARGS="-SkipBundle -IsccPath C:/Inno/ISCC.exe"
 #   make bundle Version=minor
 #   make deploy-fast ARGS="-NoBump -Junction"
+#   make update-bundle
 # ============================================================================
 
 SCRIPT_DIR      := scripts
@@ -14,6 +15,7 @@ BUILD_BUNDLE    := $(SCRIPT_DIR)/build-bundle.ps1
 DEPLOY_DEV       := $(SCRIPT_DIR)/deploy-dev.ps1
 BUILD_INSTALLER  := $(SCRIPT_DIR)/build-installer.ps1
 DEPLOY_COMMANDS  := $(SCRIPT_DIR)/deploy-commands.ps1
+UPDATE_BUNDLE    := $(SCRIPT_DIR)/update-bundle.ps1
 
 DIST_DIR        := dist
 DIST_BUNDLE     := $(DIST_DIR)/IGITools.bundle
@@ -37,7 +39,7 @@ endif
 .DEFAULT_GOAL := help
 
 .PHONY: help info all bundle bundle-fast deploy deploy-fast deploy-junction
-.PHONY: installer installer-fast clean version deploy-commands
+.PHONY: installer installer-fast clean version deploy-commands update-bundle
 
 # ============================================================================
 # Targets
@@ -53,6 +55,7 @@ help:
 	@echo   make deploy            Сборка + установка в ApplicationPlugins (admin)
 	@echo   make deploy-fast       Deploy без повторного копирования runtime
 	@echo   make deploy-junction   Deploy через junction на dist
+	@echo   make update-bundle     Обновить установленный плагин (всё кроме runtime)
 	@echo   make installer         Bundle + Inno Setup EXE
 	@echo   make installer-fast    Installer без копирования runtime
 	@echo   make version           Показать VERSION
@@ -129,6 +132,10 @@ clean:
 ## deploy-commands — обновить файлы команд в установленном плагине AutoCAD
 deploy-commands:
 	$(PS_FILE) $(DEPLOY_COMMANDS)
+
+## update-bundle — обновить установленный плагин: всё кроме Contents/runtime
+update-bundle:
+	$(PS_FILE) $(UPDATE_BUNDLE) $(ARGS)
 
 icons-convert:
 	$(PS_FILE) $(SCRIPT_DIR)/icons_convert.ps1
