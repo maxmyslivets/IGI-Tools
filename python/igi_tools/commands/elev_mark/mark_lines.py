@@ -8,7 +8,13 @@ import traceback
 from pyrx import Db, Ed, command
 
 from igi_tools import dem
-from igi_tools.commands.elev_mark.blocks import ensure_block, insert_mark, reset_marks_stack
+from igi_tools.commands.elev_mark.blocks import (
+    end_undo_mark,
+    ensure_block,
+    insert_mark_raw,
+    reset_marks_stack,
+    start_undo_mark,
+)
 
 
 def _show_step_dialog() -> float | None:
@@ -231,30 +237,35 @@ def mark_lines() -> None:
         # ── расстановка отметок ──
         placed = 0
         skipped = 0
-        for oid in oids:
-            ent = Db.Entity(oid, Db.OpenMode.kForRead)
-            try:
-                if ent.isDerivedFrom(Db.Polyline.desc()):
-                    pts = _polyline_points(ent, max_step)
-                elif ent.isDerivedFrom(Db.Line.desc()):
-                    pts = _line_points(ent, max_step)
-                else:
-                    continue
-            except Exception as exc:
-                print(f"[IGI Tools] Ошибка обработки объекта: {exc}")
-                continue
-            finally:
-                ent.close()
 
-            for x, y in pts:
-                z = dem.get_elevation(x, y)
-                if z is None:
-                    skipped += 1
+        start_undo_mark()
+        try:
+            for oid in oids:
+                ent = Db.Entity(oid, Db.OpenMode.kForRead)
+                try:
+                    if ent.isDerivedFrom(Db.Polyline.desc()):
+                        pts = _polyline_points(ent, max_step)
+                    elif ent.isDerivedFrom(Db.Line.desc()):
+                        pts = _line_points(ent, max_step)
+                    else:
+                        continue
+                except Exception as exc:
+                    print(f"[IGI Tools] Ошибка обработки объекта: {exc}")
                     continue
-                if not insert_mark(db, x, y, z):
-                    print("[IGI Tools] Не удалось вставить блок «СП_9.2».")
-                    continue
-                placed += 1
+                finally:
+                    ent.close()
+
+                for x, y in pts:
+                    z = dem.get_elevation(x, y)
+                    if z is None:
+                        skipped += 1
+                        continue
+                    if not insert_mark_raw(db, x, y, z):
+                        print("[IGI Tools] Не удалось вставить блок «СП_9.2».")
+                        continue
+                    placed += 1
+        finally:
+            end_undo_mark()
 
         print(f"[IGI Tools] Нанесено отметок: {placed}, пропущено (нет данных ЦМР): {skipped}.")
 

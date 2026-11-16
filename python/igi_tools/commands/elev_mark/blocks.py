@@ -115,6 +115,24 @@ def insert_mark(db: Db.Database, x: float, y: float, elev: float) -> bool:
     return True
 
 
+def insert_mark_raw(db: Db.Database, x: float, y: float, elev: float) -> bool:
+    """Вставить блок без undo-маркера — для групповой отмены через внешнюю start_undo_mark."""
+    block_id = ensure_block(db)
+    if block_id is None:
+        return False
+
+    for name, value in (("igi_em_x", x), ("igi_em_y", y), ("igi_em_elev", elev)):
+        if not Ed.Core.putSym(name, [(Rx.LispType.kDouble, float(value))]):
+            print(f"[IGI Tools] Не удалось передать {name} в AutoLISP.")
+            return False
+
+    result = Ed.Core.evaluateLisp("(igi-insert-sp92-raw igi_em_x igi_em_y igi_em_elev)")
+    if not (result and len(result) == 1 and result[0] and result[0][0] == Rx.LispType.kT_atom):
+        print("[IGI Tools] Вставка блока «СП_9.2» через AutoLISP не удалась.")
+        return False
+    return True
+
+
 def _lisp_str_result(expression: str) -> str | None:
     result = Ed.Core.evaluateLisp(expression)
     if not result or len(result) != 1 or not result[0]:
@@ -123,6 +141,20 @@ def _lisp_str_result(expression: str) -> str | None:
     if isinstance(item, tuple) and len(item) == 2 and item[0] == Rx.LispType.kText:
         return str(item[1])
     return None
+
+
+def start_undo_mark() -> None:
+    """Открыть группу Undo — все последующие изменения будут одним шагом отмены."""
+    Ed.Core.evaluateLisp(
+        "(vla-StartUndoMark (vla-get-ActiveDocument (vlax-get-acad-object)))"
+    )
+
+
+def end_undo_mark() -> None:
+    """Закрыть группу Undo."""
+    Ed.Core.evaluateLisp(
+        "(vla-EndUndoMark (vla-get-ActiveDocument (vlax-get-acad-object)))"
+    )
 
 
 def undo_last_mark() -> bool:
