@@ -10,9 +10,11 @@ from pyrx import Db, Ed, command
 
 from igi_tools import dem
 from igi_tools.commands.elev_mark.blocks import (
+    end_undo_mark,
     ensure_block,
-    insert_mark,
+    insert_mark_raw,
     reset_marks_stack,
+    start_undo_mark,
 )
 
 
@@ -359,26 +361,30 @@ def mark_grid() -> None:
         points_created = 0
         points_skipped = 0
 
-        for i_glob in range(-max_steps, max_steps + 1):
-            i_loc = i_glob + offset
-            for j_glob in range(-max_steps, max_steps + 1):
-                j_loc = j_glob + offset
+        start_undo_mark()
+        try:
+            for i_glob in range(-max_steps, max_steps + 1):
+                i_loc = i_glob + offset
+                for j_glob in range(-max_steps, max_steps + 1):
+                    j_loc = j_glob + offset
 
-                u = row_u[i_loc][j_loc]
-                v = col_v[j_loc][i_loc]
+                    u = row_u[i_loc][j_loc]
+                    v = col_v[j_loc][i_loc]
 
-                x = center_x + u * cos_a - v * sin_a
-                y = center_y + u * sin_a + v * cos_a
+                    x = center_x + u * cos_a - v * sin_a
+                    y = center_y + u * sin_a + v * cos_a
 
-                if polygon.contains(Point(x, y)):
-                    z = dem.get_elevation(x, y)
-                    if z is None:
-                        points_skipped += 1
-                        continue
-                    if insert_mark(db, x, y, z):
-                        points_created += 1
-                    else:
-                        points_skipped += 1
+                    if polygon.contains(Point(x, y)):
+                        z = dem.get_elevation(x, y)
+                        if z is None:
+                            points_skipped += 1
+                            continue
+                        if insert_mark_raw(db, x, y, z):
+                            points_created += 1
+                        else:
+                            points_skipped += 1
+        finally:
+            end_undo_mark()
 
         print(
             f"[IGI Tools] Нанесено отметок: {points_created}, "

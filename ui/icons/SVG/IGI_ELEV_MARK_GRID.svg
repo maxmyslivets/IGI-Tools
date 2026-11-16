@@ -1,30 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <!-- Якорь сетки (прозрачный) -->
-  <rect width="32" height="32" fill="none"/>
-
-  <!-- БАЗА: граница области построения -->
-  <polygon points="3,5 27,3 29,26 5,28" fill="#D9D9D9" fill-opacity="0.35" stroke="#666666" stroke-width="1.2" stroke-linejoin="round"/>
-
-  <!-- БАЗА: линии сетки -->
-  <line x1="11" y1="4.3" x2="13" y2="27.3" stroke="#808080" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
-  <line x1="19" y1="3.7" x2="21" y2="26.6" stroke="#808080" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
-  <line x1="3.7" y1="12" x2="28.7" y2="10.3" stroke="#808080" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
-  <line x1="4.3" y1="19.3" x2="29" y2="17.7" stroke="#808080" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
-
-  <!-- МОДИФИКАТОР: отметки в узлах сетки — главный акцент -->
-  <circle cx="11.6" cy="10.7" r="1.7" fill="#89CBFA"/>
-  <circle cx="21.2" cy="15.4" r="1.7" fill="#89CBFA"/>
-  <circle cx="7.2" cy="20.4" r="1.7" fill="#89CBFA"/>
-  <circle cx="17.6" cy="24.1" r="1.7" fill="#89CBFA"/>
-
-  <!-- БАЗА: прочие узлы — нейтральные маркеры -->
-  <circle cx="6.6" cy="6.5" r="1.1" fill="#D9D9D9" stroke="#666666" stroke-width="0.7"/>
-  <circle cx="15.6" cy="4.6" r="1.1" fill="#D9D9D9" stroke="#666666" stroke-width="0.7"/>
-  <circle cx="25.4" cy="7.6" r="1.1" fill="#D9D9D9" stroke="#666666" stroke-width="0.7"/>
-  <circle cx="27" cy="21.9" r="1.1" fill="#D9D9D9" stroke="#666666" stroke-width="0.7"/>
-
-  <!-- Процесс: шаг сетки — зелёный размер -->
-  <line x1="5" y1="30" x2="13" y2="29.3" stroke="#82D99F" stroke-width="1.2" stroke-linecap="round"/>
-  <line x1="5" y1="28.6" x2="5" y2="31.2" stroke="#82D99F" stroke-width="1.2" stroke-linecap="round"/>
-  <line x1="13" y1="27.9" x2="13" y2="30.5" stroke="#82D99F" stroke-width="1.2" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Отметки по сетке из ЦМР">
+  <title>IGI_ELEV_MARK_GRID — Отметки по сетке из ЦМР</title>
+  <path d="M 4,10 L 11,4 L 24,6 L 29,15 L 25,26 L 12,28 L 4,21 Z" fill="none" stroke="#D9D9D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M 12,17 L 9.52,12.84 L 14.48,12.84 Z" fill="#89CBFA"/><path d="M 12,12.84 L 12,10.92" fill="none" stroke="#89CBFA" stroke-width="1.36" stroke-linecap="round" stroke-linejoin="round"/><path d="M 9.28,10.92 L 14.72,10.92" fill="none" stroke="#89CBFA" stroke-width="1.36" stroke-linecap="round" stroke-linejoin="round"/><path d="M 21,17 L 18.52,12.84 L 23.48,12.84 Z" fill="#89CBFA"/><path d="M 21,12.84 L 21,10.92" fill="none" stroke="#89CBFA" stroke-width="1.36" stroke-linecap="round" stroke-linejoin="round"/><path d="M 18.28,10.92 L 23.72,10.92" fill="none" stroke="#89CBFA" stroke-width="1.36" stroke-linecap="round" stroke-linejoin="round"/><path d="M 12,25 L 9.52,20.84 L 14.48,20.84 Z" fill="#89CBFA"/><path d="M 12,20.84 L 12,18.92" fill="none" stroke="#89CBFA" stroke-width="1.36" stroke-linecap="round" stroke-linejoin="round"/><path d="M 9.28,18.92 L 14.72,18.92" fill="none" stroke="#89CBFA" stroke-width="1.36" stroke-linecap="round" stroke-linejoin="round"/><path d="M 21,25 L 18.52,20.84 L 23.48,20.84 Z" fill="#89CBFA"/><path d="M 21,20.84 L 21,18.92" fill="none" stroke="#89CBFA" stroke-width="1.36" stroke-linecap="round" stroke-linejoin="round"/><path d="M 18.28,18.92 L 23.72,18.92" fill="none" stroke="#89CBFA" stroke-width="1.36" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

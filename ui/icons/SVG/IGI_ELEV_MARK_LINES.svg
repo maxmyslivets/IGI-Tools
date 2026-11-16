@@ -1,20 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <!-- Якорь сетки (прозрачный) -->
-  <rect width="32" height="32" fill="none"/>
-
-  <!-- БАЗА: полилиния, вдоль которой расставляются отметки -->
-  <path d="M 2.5,25 L 12,14 L 21,19 L 29.5,6" fill="none" stroke="#D9D9D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M 2.5,25 L 12,14 L 21,19 L 29.5,6" fill="none" stroke="#666666" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
-
-  <!-- МОДИФИКАТОР: узлы отметок на линии — главный акцент -->
-  <circle cx="7.2" cy="19.7" r="2.2" fill="#89CBFA"/>
-  <circle cx="12" cy="14" r="2.2" fill="#89CBFA"/>
-  <circle cx="21" cy="19" r="2.2" fill="#89CBFA"/>
-
-  <!-- БАЗА: подписи отметок под узлами -->
-  <rect x="4.6" y="24.6" width="5.2" height="1.6" rx="0.8" fill="#D9D9D9" stroke="#666666" stroke-width="0.6"/>
-  <rect x="18.4" y="23.9" width="5.2" height="1.6" rx="0.8" fill="#D9D9D9" stroke="#666666" stroke-width="0.6"/>
-
-  <!-- Процесс: направление обхода линии — зелёный -->
-  <polyline points="26,4.5 29.8,6 26,7.5" fill="none" stroke="#82D99F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Отметки по линии из ЦМР">
+  <title>IGI_ELEV_MARK_LINES — Отметки по линии из ЦМР</title>
+  <path d="M 3,26 L 29,10" fill="none" stroke="#D9D9D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M 8.2,22.8 L 5.25,17.86 L 11.14,17.86 Z" fill="#89CBFA"/><path d="M 8.2,17.86 L 8.2,15.58" fill="none" stroke="#89CBFA" stroke-width="1.61" stroke-linecap="round" stroke-linejoin="round"/><path d="M 4.97,15.58 L 11.43,15.58" fill="none" stroke="#89CBFA" stroke-width="1.61" stroke-linecap="round" stroke-linejoin="round"/><path d="M 16,18 L 13.05,13.06 L 18.95,13.06 Z" fill="#89CBFA"/><path d="M 16,13.06 L 16,10.78" fill="none" stroke="#89CBFA" stroke-width="1.61" stroke-linecap="round" stroke-linejoin="round"/><path d="M 12.77,10.78 L 19.23,10.78" fill="none" stroke="#89CBFA" stroke-width="1.61" stroke-linecap="round" stroke-linejoin="round"/><path d="M 23.8,13.2 L 20.86,8.26 L 26.75,8.26 Z" fill="#89CBFA"/><path d="M 23.8,8.26 L 23.8,5.98" fill="none" stroke="#89CBFA" stroke-width="1.61" stroke-linecap="round" stroke-linejoin="round"/><path d="M 20.57,5.98 L 27.03,5.98" fill="none" stroke="#89CBFA" stroke-width="1.61" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
