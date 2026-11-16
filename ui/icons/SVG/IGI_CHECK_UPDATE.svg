@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Обновление">
+  <title>IGI_CHECK_UPDATE — Обновление</title>
+  <defs><mask id="cut-igi-check-update" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32"><rect width="32" height="32" fill="#fff"/><circle cx="24" cy="24" r="7.6" fill="#000"/></mask></defs><g mask="url(#cut-igi-check-update)"><path d="M 20.38,11.11 A 8,8 0 1 1 13.89,4.62" fill="none" stroke="#89CBFA" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M 17.83,5.32 L 13.47,6.99 L 14.31,2.26 Z" fill="#89CBFA"/></g><g transform="translate(24 24)"><path d="M -4.5,0.3 L -1.5,3.4 L 4.6,-3.5" fill="none" stroke="#82D99F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

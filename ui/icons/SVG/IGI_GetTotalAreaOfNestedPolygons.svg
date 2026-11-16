@@ -1,15 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <!-- Background Grid Alignment Anchor (Transparent) -->
-  <rect width="32" height="32" fill="none"/>
-
-  <!-- БАЗОВЫЙ СЛОЙ: Вложенные полигоны -->
-
-  <!-- Внешний полигон (граница) — сдвинут влево -->
-  <polygon points="2,24 6,5 18,4 22,12 20,20 4,26" fill="#D9D9D9" stroke="#666666" stroke-width="1" stroke-linejoin="round"/>
-
-  <!-- Внутренний полигон (вложенный) — сдвинут влево -->
-  <polygon points="8,17 12,10 18,11 17,18 10,20" fill="#D9D9D9" fill-opacity="0.65" stroke="#666666" stroke-width="1" stroke-linejoin="round"/>
-
-  <!-- МОДИФИКАТОР: Исправленная Сигма Σ (сумма) — классические пропорции -->
-  <path d="M 29,9 H 22 V 10 L 25.5,16 L 22,22 V 23 H 29" fill="none" stroke="#89CBFA" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Площадь группы полигонов">
+  <title>IGI_GETTOTALAREAOFNESTEDPOLYGONS — Площадь группы полигонов</title>
+  <path d="M 3,22 L 7,5 L 21,3 L 29,12 L 26,25 L 10,29 Z M 9,17 L 12,9 L 21,8 L 23,16 L 18,22 L 11,22 Z" fill="#D9D9D9" fill-rule="evenodd" stroke="#666666" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M 13,16 L 15,11.5 L 19,12 L 19.5,17 L 15.5,18.5 Z" fill="#89CBFA" stroke="#666666" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

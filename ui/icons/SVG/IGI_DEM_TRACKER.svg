@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="ЦМР-трекер">
+  <title>IGI_DEM_TRACKER — ЦМР-трекер</title>
+  <path d="M 3,6 C 5.62,1.5 8.23,8 11.5,4.5 C 14.77,1 17.38,7 20,3.5" fill="none" stroke="#D9D9D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M 3,11 C 5.62,6.5 8.23,13 11.5,9.5 C 14.77,6 17.38,12 20,8.5" fill="none" stroke="#D9D9D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><g transform="translate(11.5 13.5)"><path d="M 0,0 L 0,13.4 L 3.4,10.0 L 5.9,14.6 L 8.6,13.2 L 6.1,8.7 L 10.6,8.4 Z" fill="#89CBFA"/></g><rect x="21" y="17" width="9" height="7.5" rx="1.4" fill="#89CBFA"/><path d="M 23,20.8 L 28,20.8" fill="none" stroke="#666666" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
