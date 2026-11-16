@@ -1,0 +1,52 @@
+# Виртуальные окружения и зависимости
+.venv/
+venv/
+python-embed/
+site-packages/
+node_modules/
+
+# Кэш Python и инструментов разработки
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+
+# Сборки, дистрибутивы и системные папки IDE
+build/
+dist/
+*.egg-info/
+.idea/
+.vscode/
+.git/
+
+# Логи, базы данных и тяжелые данные
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.csv
+*.parquet
+*.pkl
+*.pickle
+data/
+logs/
+dumps/
+media/
+static/
+resources/
+test_files/
+
+# Секреты и окружение (для безопасности)
+.env
+.env.*
+*.pem
+*.key
+
+# .json
+package-lock.json
