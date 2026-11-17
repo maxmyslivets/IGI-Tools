@@ -154,7 +154,7 @@ _LEAFLET_HTML = r"""<!DOCTYPE html>
     <option value="google">Google</option>
     <option value="yandex">Yandex</option>
   </select>
-  <button id="drawBtn" title="Рисовать полигон">&#x1F58C;&#xFE0F;</button>
+  <button id="drawBtn" title="Прямоугольная область">&#x25AD;</button>
   <button id="clearBtn" title="Очистить всё">&#x1F5D1;&#xFE0F;</button>
   <button id="saveBtn" class="primary" title="Сохранить">&#x1F4BE;</button>
   <div class="search-wrap">
@@ -180,9 +180,11 @@ var drawLayer = L.featureGroup();
 var zoomBeforeDraw = 7;
 
 var isDrawing = false;
-var tempPoints = [];
-var previewPolygon = null;
-var drawnPolygons = []; // { polygon: L.Polygon, markers: [L.Marker] }
+var rectangle = null;          // L.Rectangle
+var cornerMarkers = [];        // [L.Marker] — 4 угла
+var cornerPoints = null;       // { nw, ne, se, sw }
+var firstCornerPt = null;
+var previewRect = null;
 
 // ---- Geodesic area (Earth authalic sphere) ----
 function geodesicArea(latlngs) {
@@ -221,6 +223,9 @@ drawLayer.addTo(map);
 switchProvider();
 
 // ---- Drawing ----
+var _dragAnchor = null; // противоположный угол при перетаскивании
+var CORNER_KEYS = ['nw', 'ne', 'se', 'sw'];
+
 function toggleDrawMode() {
     if (isDrawing) {
         cancelDrawing();
@@ -233,176 +238,198 @@ function toggleDrawMode() {
 
 function startDrawing() {
     isDrawing = true;
-    tempPoints = [];
-    previewPolygon = null;
+    firstCornerPt = null;
+    previewRect = null;
     zoomBeforeDraw = map.getZoom();
     map.getContainer().style.cursor = 'crosshair';
-    map.on('click', onDrawClick);
-    map.on('contextmenu', onDrawRightClick);
-    setStatus('Клик — вершина, правая кнопка — завершить');
+    map.on('click', onRectClick);
+    map.on('mousemove', onRectMove);
+    map.on('contextmenu', onRectRightClick);
+    setStatus('Клик — первый угол, второй клик — противоположный угол');
 }
 
 function cancelDrawing() {
-    if (previewPolygon && drawLayer.hasLayer(previewPolygon)) {
-        drawLayer.removeLayer(previewPolygon);
+    if (previewRect && drawLayer.hasLayer(previewRect)) {
+        drawLayer.removeLayer(previewRect);
     }
-    previewPolygon = null;
-    tempPoints = [];
+    previewRect = null;
+    firstCornerPt = null;
     isDrawing = false;
-    map.off('click', onDrawClick);
-    map.off('contextmenu', onDrawRightClick);
+    map.off('click', onRectClick);
+    map.off('mousemove', onRectMove);
+    map.off('contextmenu', onRectRightClick);
     map.getContainer().style.cursor = '';
 }
 
-function onDrawClick(e) {
-    // Check if clicking near first vertex to close polygon
-    if (tempPoints.length >= 3) {
-        var firstPt = L.latLng(tempPoints[0][0], tempPoints[0][1]);
-        var firstContainer = map.latLngToContainerPoint(firstPt);
-        var clickContainer = map.latLngToContainerPoint(e.latlng);
-        var distPx = firstContainer.distanceTo(clickContainer);
-        if (distPx < 15) {
-            finishDrawing();
-            return;
-        }
-    }
-
-    tempPoints.push([e.latlng.lat, e.latlng.lng]);
-    updatePreview();
-}
-
-function onDrawRightClick(e) {
-    L.DomEvent.preventDefault(e.originalEvent);
-    if (tempPoints.length >= 3) {
-        finishDrawing();
+function onRectClick(e) {
+    if (firstCornerPt === null) {
+        firstCornerPt = e.latlng;
     } else {
-        setStatus('Минимум 3 точки для полигона');
+        finishRectangle(firstCornerPt, e.latlng);
     }
 }
 
-function updatePreview() {
-    if (previewPolygon && drawLayer.hasLayer(previewPolygon)) {
-        drawLayer.removeLayer(previewPolygon);
-    }
-    if (tempPoints.length >= 1) {
-        previewPolygon = L.polygon(tempPoints, {
-            color: '#e74c3c',
-            weight: 2,
-            fillColor: '#e74c3c',
-            fillOpacity: 0.1,
-            dashArray: '5, 8'
-        }).addTo(drawLayer);
+function onRectRightClick(e) {
+    L.DomEvent.preventDefault(e.originalEvent);
+    if (firstCornerPt !== null) {
+        finishRectangle(firstCornerPt, e.latlng);
+    } else {
+        setStatus('Кликните первый угол');
     }
 }
 
-function finishDrawing() {
-    if (tempPoints.length < 3) {
-        setStatus('Минимум 3 точки для полигона');
-        return;
+function onRectMove(e) {
+    if (firstCornerPt === null) return;
+    if (previewRect && drawLayer.hasLayer(previewRect)) {
+        drawLayer.removeLayer(previewRect);
     }
+    previewRect = L.rectangle([firstCornerPt, e.latlng], {
+        color: '#e74c3c',
+        weight: 2,
+        fillColor: '#e74c3c',
+        fillOpacity: 0.1,
+        dashArray: '5, 8'
+    }).addTo(drawLayer);
+}
 
-    // Save points before cancelDrawing clears them
-    var savedPoints = tempPoints.slice();
-
-    // Clean up preview and input handlers
+function finishRectangle(corner1, corner2) {
     cancelDrawing();
 
-    // Create final polygon
-    var polygon = L.polygon(savedPoints, {
+    var minLat = Math.min(corner1.lat, corner2.lat);
+    var maxLat = Math.max(corner1.lat, corner2.lat);
+    var minLng = Math.min(corner1.lng, corner2.lng);
+    var maxLng = Math.max(corner1.lng, corner2.lng);
+
+    cornerPoints = {
+        nw: L.latLng(maxLat, minLng),
+        ne: L.latLng(maxLat, maxLng),
+        se: L.latLng(minLat, maxLng),
+        sw: L.latLng(minLat, minLng)
+    };
+
+    rectangle = L.rectangle([cornerPoints.se, cornerPoints.nw], {
         color: '#e74c3c',
         weight: 2,
         fillColor: '#e74c3c',
         fillOpacity: 0.15
     }).addTo(drawLayer);
 
-    // Create draggable vertex markers
-    var markerIcon = L.divIcon({
-        className: 'vertex-marker',
-        iconSize: [12, 12],
-        iconAnchor: [6, 6]
-    });
-
-    var markers = savedPoints.map(function(pt) {
-        var m = L.marker(pt, {
-            draggable: true,
-            icon: markerIcon
-        }).addTo(drawLayer);
-        return m;
-    });
-
-    // When any marker drags, update polygon
-    var updateFn = function() { updatePolygonFromMarkers(polygon, markers); };
-    markers.forEach(function(m) { m.on('drag', updateFn); });
-
-    drawnPolygons.push({ polygon: polygon, markers: markers });
-
+    createCornerMarkers();
     document.getElementById('drawBtn').classList.remove('active');
     updateStatus();
 }
 
-function updatePolygonFromMarkers(polygon, markers) {
-    var latlngs = markers.map(function(m) { return m.getLatLng(); });
-    polygon.setLatLngs([latlngs]);
+function createCornerMarkers() {
+    clearCornerMarkers();
+    CORNER_KEYS.forEach(function(key) {
+        var m = L.marker(cornerPoints[key], {
+            draggable: true,
+            icon: L.divIcon({
+                className: 'corner-marker',
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            })
+        }).addTo(drawLayer);
+        m._cornerKey = key;
+        m.on('drag', onCornerDrag);
+        m.on('dragstart', onCornerDragStart);
+        cornerMarkers.push(m);
+    });
+}
+
+function clearCornerMarkers() {
+    cornerMarkers.forEach(function(m) {
+        if (drawLayer.hasLayer(m)) drawLayer.removeLayer(m);
+    });
+    cornerMarkers = [];
+}
+
+var _OPPOSITE = { nw: 'se', ne: 'sw', se: 'nw', sw: 'ne' };
+
+function onCornerDragStart(e) {
+    var key = e.target._cornerKey;
+    _dragAnchor = cornerPoints[_OPPOSITE[key]];
+}
+
+function onCornerDrag(e) {
+    var marker = e.target;
+    var moved = marker.getLatLng();
+    var anchor = _dragAnchor;
+
+    var minLat = Math.min(anchor.lat, moved.lat);
+    var maxLat = Math.max(anchor.lat, moved.lat);
+    var minLng = Math.min(anchor.lng, moved.lng);
+    var maxLng = Math.max(anchor.lng, moved.lng);
+
+    cornerPoints.nw = L.latLng(maxLat, minLng);
+    cornerPoints.ne = L.latLng(maxLat, maxLng);
+    cornerPoints.se = L.latLng(minLat, maxLng);
+    cornerPoints.sw = L.latLng(minLat, minLng);
+
+    rectangle.setBounds([cornerPoints.se, cornerPoints.nw]);
+
+    cornerMarkers.forEach(function(m) {
+        if (m !== marker) {
+            m.setLatLng(cornerPoints[m._cornerKey]);
+        }
+    });
+
     updateStatus();
 }
 
 // ---- Clear ----
 function onClear() {
-    drawnPolygons.forEach(function(dp) {
-        if (dp.polygon && drawLayer.hasLayer(dp.polygon)) drawLayer.removeLayer(dp.polygon);
-        dp.markers.forEach(function(m) {
-            if (drawLayer.hasLayer(m)) drawLayer.removeLayer(m);
-        });
-    });
-    drawnPolygons = [];
+    if (rectangle && drawLayer.hasLayer(rectangle)) {
+        drawLayer.removeLayer(rectangle);
+    }
+    rectangle = null;
+    clearCornerMarkers();
+    cornerPoints = null;
 
     if (isDrawing) {
         cancelDrawing();
         document.getElementById('drawBtn').classList.remove('active');
     }
-    if (previewPolygon && drawLayer.hasLayer(previewPolygon)) {
-        drawLayer.removeLayer(previewPolygon);
+    if (previewRect && drawLayer.hasLayer(previewRect)) {
+        drawLayer.removeLayer(previewRect);
     }
-    previewPolygon = null;
-    tempPoints = [];
+    previewRect = null;
+    firstCornerPt = null;
 
-    setStatus('Полигоны очищены');
+    setStatus('Очищено');
 }
 
 // ---- Area and status ----
 function getTotalArea() {
-    var total = 0;
-    drawnPolygons.forEach(function(dp) {
-        var latlngs = dp.polygon.getLatLngs();
-        if (latlngs.length > 0 && latlngs[0].length > 0) {
-            total += geodesicArea(latlngs[0]);
-        }
-    });
-    return total;
+    if (!rectangle) return 0;
+    var latlngs = [
+        cornerPoints.nw,
+        cornerPoints.ne,
+        cornerPoints.se,
+        cornerPoints.sw
+    ];
+    return geodesicArea(latlngs);
 }
 
-function getCombinedBounds() {
-    if (drawnPolygons.length === 0) return null;
-    var bounds = drawnPolygons[0].polygon.getBounds();
-    for (var i = 1; i < drawnPolygons.length; i++) {
-        bounds.extend(drawnPolygons[i].polygon.getBounds().getSouthWest());
-        bounds.extend(drawnPolygons[i].polygon.getBounds().getNorthEast());
-    }
-    return bounds;
+function getBounds() {
+    if (!rectangle) return null;
+    return rectangle.getBounds();
 }
 
-function getPolygonsCoords() {
-    return drawnPolygons.map(function(dp) {
-        var latlngs = dp.polygon.getLatLngs()[0];
-        return latlngs.map(function(ll) { return [ll.lat, ll.lng]; });
-    });
+function getRectCoords() {
+    if (!cornerPoints) return [];
+    return [[
+        [cornerPoints.nw.lat, cornerPoints.nw.lng],
+        [cornerPoints.ne.lat, cornerPoints.ne.lng],
+        [cornerPoints.se.lat, cornerPoints.se.lng],
+        [cornerPoints.sw.lat, cornerPoints.sw.lng]
+    ]];
 }
 
 function updateStatus() {
     var area = getTotalArea();
-    var count = drawnPolygons.length;
     var areaHa = (area / 10000).toFixed(2);
-    var text = (count > 0) ? ('S = ' + areaHa + ' \u0433\u0430') : '';
+    var text = area > 0 ? ('S = ' + areaHa + ' \u0433\u0430') : '';
     setStatus(text);
 }
 
@@ -410,21 +437,17 @@ function updateStatus() {
 function onFinish() {
     // Cancel any in-progress drawing first
     if (isDrawing) {
-        if (tempPoints.length >= 3) {
-            finishDrawing();
-        } else {
-            cancelDrawing();
-            document.getElementById('drawBtn').classList.remove('active');
-        }
+        cancelDrawing();
+        document.getElementById('drawBtn').classList.remove('active');
     }
 
-    if (drawnPolygons.length === 0) {
-        setStatus('\u041d\u0430\u0440\u0438\u0441\u0443\u0439\u0442\u0435 \u0445\u043e\u0442\u044f \u0431\u044b \u043e\u0434\u0438\u043d \u043f\u043e\u043b\u0438\u0433\u043e\u043d!');
+    if (!rectangle) {
+        setStatus('\u041d\u0430\u0440\u0438\u0441\u0443\u0439\u0442\u0435 \u043f\u0440\u044f\u043c\u043e\u0443\u0433\u043e\u043b\u044c\u043d\u0438\u043a!');
         return;
     }
 
-    var coords = getPolygonsCoords();
-    var bounds = getCombinedBounds();
+    var coords = getRectCoords();
+    var bounds = getBounds();
     var totalArea = getTotalArea();
 
     if (!bounds) {
@@ -450,12 +473,10 @@ function onFinish() {
 
 // ---- Fit all ----
 function onFit() {
-    if (drawnPolygons.length > 0) {
-        var bounds = getCombinedBounds();
-        if (bounds) map.fitBounds(bounds, { padding: [20, 20] });
-    } else if (isDrawing && tempPoints.length > 0) {
-        var pts = tempPoints.map(function(p) { return L.latLng(p[0], p[1]); });
-        if (pts.length > 0) map.fitBounds(pts);
+    if (rectangle) {
+        map.fitBounds(rectangle.getBounds(), { padding: [20, 20] });
+    } else if (isDrawing && firstCornerPt) {
+        map.fitBounds([firstCornerPt]);
     } else {
         map.setView([53.9, 27.57], 7);
     }
@@ -518,9 +539,9 @@ function doSearch() {
     });
 }
 
-// ---- CSS for vertex markers ----
+// ---- CSS for corner markers ----
 var styleSheet = document.createElement('style');
-styleSheet.textContent = '.vertex-marker { background: #e74c3c; border: 2px solid #fff; border-radius: 50%; }';
+styleSheet.textContent = '.corner-marker { background: #e74c3c; border: 2px solid #fff; border-radius: 50%; }';
 document.head.appendChild(styleSheet);
 
 // ---- Wire up header buttons ----

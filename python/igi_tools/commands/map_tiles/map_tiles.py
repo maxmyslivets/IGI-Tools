@@ -116,9 +116,7 @@ def map_tiles() -> None:
 
         provider_name = provider_match.name
         print(f"\n  Выбран тайловый сервер: {provider_name}")
-        total_vertices = sum(len(p) for p in polygons)
-        print(f"  Полигонов: {len(polygons)}, всего вершин: {total_vertices}")
-        print(f"  BBox: {bbox}")
+        print(f"  Прямоугольная область: {bbox}")
 
         # ── Шаг 3: Максимальный зум провайдера ──
         zoom = provider_match.max_zoom
@@ -305,12 +303,8 @@ def _insert_image_impl(
             print("[IGI Map Tiles] Масштаб не задан — используется 1:1.")
             scale = float(img_width)
 
-    # ── Запрос угла поворота ──
-    res, angle = Ed.Editor.getAngle(
-        ins_pt, "\nУгол поворота <0>: "
-    )
-    if res != Ed.PromptStatus.eOk:
-        angle = 0.0
+    # Угол поворота — всегда 0 (изображение не поворачивается)
+    angle = 0.0
 
     # ── Пытаемся программно, с запасным вариантом ──
     success = _insert_image_programmatic(
