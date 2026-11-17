@@ -14,6 +14,7 @@ from igi_tools.commands import manage_template as _manage_template  # noqa: F401
 from igi_tools.commands import reload_all as _reload_all  # noqa: F401
 from igi_tools.commands import repair_attrs as _repair_attrs  # noqa: F401
 from igi_tools.commands import get_total_area_of_nested_polygons as _get_total_area_of_nested_polygons  # noqa: F401
+from igi_tools.commands import map_tiles as _map_tiles  # noqa: F401
 # from igi_tools.commands import slope_hatch as _slope_hatch  # noqa: F401
 
 __all__ = [
@@ -31,5 +32,6 @@ __all__ = [
     "reload_all",
     "repair_attrs",
     "get_total_area_of_nested_polygons",
+    "map_tiles",
     # "slope_hatch",
 ]
