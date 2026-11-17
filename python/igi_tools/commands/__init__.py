@@ -12,6 +12,7 @@ from igi_tools.commands import gzu_from_geojson as _gzu_from_geojson  # noqa: F4
 from igi_tools.commands import elev_mark as _elev_mark  # noqa: F401
 from igi_tools.commands import manage_template as _manage_template  # noqa: F401
 from igi_tools.commands import reload_all as _reload_all  # noqa: F401
+from igi_tools.commands import repair_attrs as _repair_attrs  # noqa: F401
 from igi_tools.commands import get_total_area_of_nested_polygons as _get_total_area_of_nested_polygons  # noqa: F401
 # from igi_tools.commands import slope_hatch as _slope_hatch  # noqa: F401
 
@@ -28,6 +29,7 @@ __all__ = [
     "elev_mark",
     "manage_template",
     "reload_all",
+    "repair_attrs",
     "get_total_area_of_nested_polygons",
     # "slope_hatch",
 ]
