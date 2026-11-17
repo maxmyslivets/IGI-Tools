@@ -35,7 +35,6 @@ class TileProvider:
     format: str = "png"
     referer: str = ""
     timeout: int = 10
-
     def get_tile_url(self, x: int, y: int, z: int, lang: str = "ru_RU") -> str:
         """Строит URL тайла."""
         url = self.url_template.replace("{x}", str(x)).replace("{y}", str(y)).replace("{z}", str(z))
@@ -60,14 +59,7 @@ def get_default_providers() -> list[TileProvider]:
             format="png",
             referer="https://www.google.com/maps",
         ),
-        TileProvider(
-            id="yandex",
-            name="Yandex Maps (Спутник)",
-            url_template="https://sat01.maps.yandex.net/tiles?l=sat&x={x}&y={y}&z={z}&lang={lang}",
-            max_zoom=19,
-            format="jpg",
-            referer="https://yandex.ru/maps",
-        ),
+
     ]
 
 

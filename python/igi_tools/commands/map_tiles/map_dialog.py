@@ -17,28 +17,6 @@ import wx.html2
 
 
 # ---------------------------------------------------------------------------
-# Конфигурация провайдеров для JavaScript
-# ---------------------------------------------------------------------------
-
-_TILE_PROVIDERS_JS = r"""
-var tileProviders = {
-    "google": {
-        "name": "Google",
-        "url": "https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=ru_RU",
-        "maxZoom": 20,
-        "attribution": "\u00a9 Google"
-    },
-    "yandex": {
-        "name": "Yandex",
-        "url": "https://sat01.maps.yandex.net/tiles?l=sat&x={x}&y={y}&z={z}&lang=ru_RU",
-        "maxZoom": 19,
-        "attribution": "\u00a9 \u042f\u043d\u0434\u0435\u043a\u0441 \u041a\u0430\u0440\u0442\u044b"
-    }
-};
-"""
-
-
-# ---------------------------------------------------------------------------
 # HTML-шаблон карты на Leaflet.js
 # ---------------------------------------------------------------------------
 
@@ -47,6 +25,8 @@ _LEAFLET_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="pragma" content="no-cache">
+<meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate">
 <title>IGI Map Tiles</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -150,10 +130,7 @@ _LEAFLET_HTML = r"""<!DOCTYPE html>
 </head>
 <body>
 <div id="header">
-  <select id="providerSelect">
-    <option value="google">Google</option>
-    <option value="yandex">Yandex</option>
-  </select>
+
   <button id="drawBtn" title="Прямоугольная область">&#x25AD;</button>
   <button id="clearBtn" title="Очистить всё">&#x1F5D1;&#xFE0F;</button>
   <button id="saveBtn" class="primary" title="Сохранить">&#x1F4BE;</button>
@@ -170,10 +147,8 @@ _LEAFLET_HTML = r"""<!DOCTYPE html>
 <div id="map"></div>
 
 <script>
-""" + _TILE_PROVIDERS_JS + r"""
 
 // ---- State ----
-var currentProvider = 'google';
 var tileLayer = null;
 var map = null;
 var drawLayer = L.featureGroup();
@@ -200,19 +175,6 @@ function geodesicArea(latlngs) {
     return Math.abs(area * R * R / 2 * Math.PI / 180);
 }
 
-// ---- Provider switching ----
-function switchProvider() {
-    var sel = document.getElementById('providerSelect');
-    currentProvider = sel.value;
-    var prov = tileProviders[currentProvider];
-    if (!prov) return;
-    if (tileLayer) { map.removeLayer(tileLayer); }
-    tileLayer = L.tileLayer(prov.url, {
-        maxZoom: prov.maxZoom,
-        attribution: prov.attribution
-    }).addTo(map);
-}
-
 // ---- Map init ----
 map = L.map('map', {
     center: [53.9, 27.57],
@@ -220,7 +182,11 @@ map = L.map('map', {
     zoomControl: false,
 });
 drawLayer.addTo(map);
-switchProvider();
+tileLayer = L.tileLayer('https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=ru_RU', {
+    maxZoom: 20,
+    attribution: '\u00a9 Google',
+    tms: false
+}).addTo(map);
 
 // ---- Drawing ----
 var _dragAnchor = null; // противоположный угол при перетаскивании
@@ -457,7 +423,7 @@ function onFinish() {
 
     var result = JSON.stringify({
         action: 'finish',
-        provider: currentProvider,
+        provider: 'google',
         polygons: coords,
         bbox: {
             min_lat: bounds.getSouthWest().lat,
@@ -545,7 +511,6 @@ styleSheet.textContent = '.corner-marker { background: #e74c3c; border: 2px soli
 document.head.appendChild(styleSheet);
 
 // ---- Wire up header buttons ----
-document.getElementById('providerSelect').addEventListener('change', switchProvider);
 document.getElementById('drawBtn').addEventListener('click', toggleDrawMode);
 document.getElementById('clearBtn').addEventListener('click', onClear);
 document.getElementById('saveBtn').addEventListener('click', onFinish);
