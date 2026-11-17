@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Скачать тайлы">
+  <title>IGI_MAP_TILES_SAVE — Скачать тайлы</title>
+  <rect x="6" y="6" width="20" height="20" rx="1.5" fill="none" stroke="#D9D9D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="10" y="22" width="12" height="4" rx="0.5" fill="#D9D9D9"/>
+  <path d="M 16,6 L 16,16 M 12,12 L 16,16 L 20,12" fill="none" stroke="#82D99F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

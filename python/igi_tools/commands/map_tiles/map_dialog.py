@@ -35,115 +35,191 @@ _LEAFLET_HTML = r"""<!DOCTYPE html>
   html, body { width: 100%; height: 100%; overflow: hidden; }
   body { font-family: 'Segoe UI', sans-serif; }
 
-  #header {
-    height: 44px;
-    background: #2c3e50;
+  #map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+  .leaflet-container {
+    background: linear-gradient(135deg, #132238 0%, #1b3350 50%, #1f3a55 100%);
+  }
+
+  /* ---- Tool panel (top-right, blur + teal tint) ---- */
+  #toolPanel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1000;
+    background: rgba(16,34,50,0.82);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(137,203,250,0.15);
+    border-radius: 10px;
+    padding: 6px;
     display: flex;
-    align-items: center;
-    padding: 0 8px;
-    gap: 3px;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
   }
-  #header select {
-    padding: 4px 6px;
-    border-radius: 4px;
-    border: 1px solid #7f8c8d;
-    background: #34495e;
-    color: #ecf0f1;
-    font-size: 12px;
-    cursor: pointer;
-    outline: none;
-  }
-  #header select:hover { background: #3d566e; }
-  #header button {
-    width: 30px;
-    height: 30px;
+  #toolPanel button {
+    width: 36px;
+    height: 36px;
     border: none;
-    border-radius: 4px;
+    border-radius: 7px;
     cursor: pointer;
-    font-size: 16px;
-    background: #34495e;
+    background: rgba(255,255,255,0.06);
     color: #ecf0f1;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
+    transition: background 0.15s, transform 0.15s;
   }
-  #header button:hover { background: #3d566e; }
-  #header button.active {
-    background: #c0392b;
-    box-shadow: inset 0 0 0 2px #e74c3c;
+  #toolPanel button:hover { background: rgba(255,255,255,0.16); transform: scale(1.1); }
+  #toolPanel button:active { transform: scale(0.92); }
+  #toolPanel button.active {
+    background: rgba(231,76,60,0.35);
+    box-shadow: 0 0 8px rgba(231,76,60,0.25);
   }
-  #header button.primary { background: #27ae60; }
+  #toolPanel button.primary { color: #82D99F; }
+  #toolPanel button.primary:hover { background: rgba(39,174,96,0.35); }
+  #toolPanel .sep {
+    width: 100%;
+    height: 1px;
+    background: rgba(255,255,255,0.07);
+    margin: 2px 0;
+  }
 
-  .search-wrap {
+  /* ---- Search panel (top-left, semi-transparent) ---- */
+  #searchPanel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 1000;
+  }
+  #searchPanel .search-wrap {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 2px;
   }
-  .search-wrap input {
-    width: 120px;
-    padding: 4px 6px;
-    border-radius: 4px;
-    border: 1px solid #7f8c8d;
-    background: #34495e;
+  #searchPanel .search-wrap input {
+    width: 320px;
+    padding: 9px 14px 9px 34px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     color: #ecf0f1;
-    font-size: 12px;
+    font-size: 13px;
     outline: none;
+    transition: border-color 0.2s, background 0.2s;
   }
-  .search-wrap input::placeholder { color: #7f8c8d; }
+  #searchPanel .search-wrap input:focus {
+    border-color: rgba(52,152,219,0.4);
+    background: rgba(0,0,0,0.7);
+  }
+  #searchPanel .search-wrap input::placeholder { color: #7f8c8d; }
+  #searchPanel .search-wrap::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%237f8c8d'%3E%3Cpath d='M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E") no-repeat center;
+    background-size: contain;
+    pointer-events: none;
+    z-index: 1;
+  }
+  #searchPanel .search-wrap.loading::before {
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233498db'%3E%3Cpath d='M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z'/%3E%3C/svg%3E") no-repeat center;
+    background-size: contain;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { from { transform: translateY(-50%) rotate(0deg); } to { transform: translateY(-50%) rotate(360deg); } }
+
   #searchResults {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 4px);
     left: 0;
-    width: 300px;
-    max-height: 200px;
+    width: 360px;
+    max-height: 240px;
     overflow-y: auto;
-    background: #34495e;
-    border: 1px solid #7f8c8d;
-    border-radius: 4px;
+    background: rgba(37,53,68,0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     z-index: 10000;
     display: none;
+    padding: 4px 0;
   }
-  #searchResults div {
-    padding: 6px 10px;
+  #searchResults .sr-item {
+    padding: 8px 12px;
     color: #ecf0f1;
-    font-size: 11px;
-    cursor: pointer;
-    border-bottom: 1px solid #2c3e50;
-    line-height: 1.3;
-  }
-  #searchResults div:last-child { border-bottom: none; }
-  #searchResults div:hover { background: #3d566e; }
-
-  #status {
-    margin-left: auto;
-    color: #bdc3c7;
     font-size: 12px;
-    white-space: nowrap;
-    font-family: 'Segoe UI', sans-serif;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    line-height: 1.4;
+    transition: background 0.12s;
+  }
+  #searchResults .sr-item:last-child { border-bottom: none; }
+  #searchResults .sr-item:hover { background: rgba(52,152,219,0.25); }
+  #searchResults .sr-item .sr-label {
+    font-weight: 600;
+    color: #3498db;
+    font-size: 11px;
+  }
+  #searchResults .sr-empty {
+    padding: 12px;
+    color: #95a5a6;
+    font-size: 12px;
+    text-align: center;
+    font-style: italic;
+  }
+  #searchResults .sr-error {
+    padding: 12px;
+    color: #e67e22;
+    font-size: 12px;
+    text-align: center;
   }
 
-  #map { width: 100%; height: calc(100% - 44px); }
-  .leaflet-container { background: #1a1a2e; }
+  /* ---- Bottom-left status ---- */
+  #status {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    z-index: 1000;
+    color: rgba(189,195,199,0.85);
+    font-size: 12px;
+    font-family: 'Segoe UI', sans-serif;
+    background: rgba(0,0,0,0.45);
+    padding: 4px 10px;
+    border-radius: 5px;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
-<div id="header">
-
-  <button id="drawBtn" title="Прямоугольная область">&#x25AD;</button>
-  <button id="clearBtn" title="Очистить всё">&#x1F5D1;&#xFE0F;</button>
-  <button id="saveBtn" class="primary" title="Сохранить">&#x1F4BE;</button>
+<div id="searchPanel">
   <div class="search-wrap">
-    <input id="searchInput" type="text" placeholder="Поиск..." />
-    <button id="searchBtn" title="Поиск">&#x1F50D;</button>
+    <input id="searchInput" type="text" placeholder="Поиск места..." autocomplete="off" spellcheck="false" />
     <div id="searchResults"></div>
   </div>
-  <button id="zoomInBtn" title="Приблизить">&#x2795;</button>
-  <button id="zoomOutBtn" title="Отдалить">&#x2796;</button>
-  <button id="fitBtn" title="Показать все">&#x229F;</button>
-  <span id="status">Беларусь</span>
 </div>
+
+<div id="toolPanel">
+  <!-- Navigation (top group) -->
+  <button id="zoomInBtn" title="Приблизить"><svg viewBox="0 0 32 32" width="20" height="20"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M 21,21 L 28,28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M 10,14 L 18,14 M 14,10 L 14,18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <button id="zoomOutBtn" title="Отдалить"><svg viewBox="0 0 32 32" width="20" height="20"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M 21,21 L 28,28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M 10,14 L 18,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <button id="fitBtn" title="Показать все"><svg viewBox="0 0 32 32" width="20" height="20"><path d="M 5,5 L 11,5 L 11,7 L 7,7 L 7,11 L 5,11 Z" fill="currentColor"/><path d="M 21,5 L 27,5 L 27,11 L 25,11 L 25,7 L 21,7 Z" fill="currentColor"/><path d="M 5,21 L 7,21 L 7,25 L 11,25 L 11,27 L 5,27 Z" fill="currentColor"/><path d="M 21,27 L 27,27 L 27,21 L 25,21 L 25,25 L 21,25 Z" fill="currentColor"/></svg></button>
+  <div class="sep"></div>
+  <!-- Drawing tools (bottom group) -->
+  <button id="drawBtn" title="Прямоугольная область"><svg viewBox="0 0 32 32" width="20" height="20"><rect x="4" y="4" width="24" height="24" rx="1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M 4,4 L 28,28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3,3" stroke-linecap="round"/></svg></button>
+  <button id="clearBtn" title="Очистить всё"><svg viewBox="0 0 32 32" width="20" height="20"><path d="M 6,4 L 4,6 L 14,16 L 4,26 L 6,28 L 16,18 L 26,28 L 28,26 L 18,16 L 28,6 L 26,4 L 16,14 Z" fill="currentColor"/></svg></button>
+  <div class="sep"></div>
+  <button id="saveBtn" class="primary" title="Скачать тайлы"><svg viewBox="0 0 32 32" width="20" height="20"><rect x="6" y="6" width="20" height="20" rx="1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="10" y="22" width="12" height="4" rx="0.5" fill="currentColor"/><path d="M 16,6 L 16,16 M 12,12 L 16,16 L 20,12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+</div>
+
+<div id="status"></div>
 <div id="map"></div>
 
 <script>
@@ -448,40 +524,65 @@ function onFit() {
     }
 }
 
-// ---- Search (Nominatim) ----
-var lastSearchTime = 0;
+// ---- Real-time search (Nominatim) ----
+var _searchDebounceTimer = null;
+var _searchThrottleLast = 0;
+
 function doSearch() {
     var input = document.getElementById('searchInput');
     var results = document.getElementById('searchResults');
     var query = input.value.trim();
-    if (!query) { results.style.display = 'none'; return; }
 
+    if (!query) {
+        results.style.display = 'none';
+        document.querySelector('.search-wrap').classList.remove('loading');
+        return;
+    }
+
+    // Throttle: max 1 request/1.2s to Nominatim
     var now = Date.now();
-    if (now - lastSearchTime < 1000) return;
-    lastSearchTime = now;
+    if (now - _searchThrottleLast < 1200) return;
+    _searchThrottleLast = now;
 
+    document.querySelector('.search-wrap').classList.add('loading');
     setStatus('\u041f\u043e\u0438\u0441\u043a...');
 
     var url = 'https://nominatim.openstreetmap.org/search?format=json&q='
-        + encodeURIComponent(query) + '&limit=5';
+        + encodeURIComponent(query) + '&limit=7';
     fetch(url, {
         headers: {
             'Accept-Language': 'ru',
             'User-Agent': 'IGI-MapTiles/1.0'
         }
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
     .then(function(data) {
+        document.querySelector('.search-wrap').classList.remove('loading');
         results.innerHTML = '';
         if (!data || data.length === 0) {
-            results.innerHTML = '<div>\u041d\u0438\u0447\u0435\u0433\u043e \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e</div>';
+            results.innerHTML = '<div class="sr-empty">\u041d\u0438\u0447\u0435\u0433\u043e \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e.<br>\u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0443\u0442\u043e\u0447\u043d\u0438\u0442\u044c \u0437\u0430\u043f\u0440\u043e\u0441.</div>';
             results.style.display = 'block';
             setStatus('');
             return;
         }
         data.forEach(function(item) {
             var div = document.createElement('div');
-            div.textContent = item.display_name;
+            div.className = 'sr-item';
+            // Show type badge + display name
+            var type = item.type || '';
+            var label = '';
+            if (type) {
+                var labels = {city:'\u0433\u043e\u0440\u043e\u0434', town:'\u043f\u043e\u0441\u0451\u043b\u043e\u043a', village:'\u0434\u0435\u0440\u0435\u0432\u043d\u044f',
+                    hamlet:'\u0445\u0443\u0442\u043e\u0440', road:'\u0443\u043b\u0438\u0446\u0430', river:'\u0440\u0435\u043a\u0430', lake:'\u043e\u0437\u0435\u0440\u043e',
+                    forest:'\u043b\u0435\u0441', country:'\u0441\u0442\u0440\u0430\u043d\u0430', state:'\u043e\u0431\u043b\u0430\u0441\u0442\u044c'};
+                label = labels[type] || type;
+            }
+            var html = label ? '<span class="sr-label">' + label + '</span> ' : '';
+            html += item.display_name;
+            div.innerHTML = html;
             div.addEventListener('click', function() {
                 var bbox = item.boundingbox;
                 if (bbox) {
@@ -491,6 +592,7 @@ function doSearch() {
                     ]);
                 }
                 results.style.display = 'none';
+                document.getElementById('searchInput').value = item.display_name.split(',')[0];
                 setStatus('');
             });
             results.appendChild(div);
@@ -499,10 +601,22 @@ function doSearch() {
         setStatus('');
     })
     .catch(function(err) {
-        results.innerHTML = '<div>\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u043e\u0438\u0441\u043a\u0430</div>';
+        document.querySelector('.search-wrap').classList.remove('loading');
+        results.innerHTML = '';
+        // Even on error, show a helpful message suggesting alternatives
+        var suggestionEl = document.createElement('div');
+        suggestionEl.className = 'sr-error';
+        suggestionEl.innerHTML = '\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u0438\u043b\u0438 \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0434\u0440\u0443\u0433\u043e\u0439 \u0437\u0430\u043f\u0440\u043e\u0441';
+        results.appendChild(suggestionEl);
         results.style.display = 'block';
         setStatus('');
     });
+}
+
+// ---- Debounced search trigger for real-time input ----
+function onSearchInput() {
+    if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+    _searchDebounceTimer = setTimeout(doSearch, 350);
 }
 
 // ---- CSS for corner markers ----
@@ -514,9 +628,12 @@ document.head.appendChild(styleSheet);
 document.getElementById('drawBtn').addEventListener('click', toggleDrawMode);
 document.getElementById('clearBtn').addEventListener('click', onClear);
 document.getElementById('saveBtn').addEventListener('click', onFinish);
-document.getElementById('searchBtn').addEventListener('click', doSearch);
+document.getElementById('searchInput').addEventListener('input', onSearchInput);
 document.getElementById('searchInput').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { doSearch(); }
+    if (e.key === 'Enter') {
+        if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+        doSearch();
+    }
 });
 document.getElementById('zoomInBtn').addEventListener('click', function() { map.zoomIn(); });
 document.getElementById('zoomOutBtn').addEventListener('click', function() { map.zoomOut(); });
