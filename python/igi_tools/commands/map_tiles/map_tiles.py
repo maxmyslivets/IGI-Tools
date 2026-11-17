@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import math
 import os
+import shutil
 import time
 import traceback
 
@@ -61,13 +62,33 @@ def map_tiles() -> None:
             return
 
         provider_id = map_data.get("provider", "google")
-        polygon = map_data["polygon"]
+        polygons = map_data["polygons"]
+        polygon = polygons[0]
         bbox = (
             map_data["bbox"]["min_lon"],
             map_data["bbox"]["min_lat"],
             map_data["bbox"]["max_lon"],
             map_data["bbox"]["max_lat"],
         )
+
+        # ── Шаг 2: Если тайлы уже загружены в диалоге — сразу на вставку ──
+        existing_png = map_data.get("png_path")
+        if existing_png and os.path.isfile(existing_png):
+            print(f"\n  Тайлы загружены в диалоге: {existing_png}")
+            img_width = map_data.get("png_width", 0)
+            img_height = map_data.get("png_height", 0)
+            dwg_path = _get_dwg_dir()
+            dst_path = os.path.normpath(
+                os.path.join(dwg_path, os.path.basename(existing_png))
+            )
+            shutil.copy2(existing_png, dst_path)
+            print(f"  Скопировано в: {dst_path}")
+            _insert_image(dst_path, img_width, img_height)
+            print(
+                f"\n[IGI Map Tiles] Готово! Изображение сохранено:\n"
+                f"  {dst_path}"
+            )
+            return
 
         providers = get_tile_providers()
         provider_match = next(
@@ -80,7 +101,8 @@ def map_tiles() -> None:
 
         provider_name = provider_match.name
         print(f"\n  Выбран тайловый сервер: {provider_name}")
-        print(f"  Полигон: {len(polygon)} вершин")
+        total_vertices = sum(len(p) for p in polygons)
+        print(f"  Полигонов: {len(polygons)}, всего вершин: {total_vertices}")
         print(f"  BBox: {bbox}")
 
         # ── Шаг 3: Максимальный зум провайдера ──

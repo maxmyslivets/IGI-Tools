@@ -15,6 +15,7 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from threading import Event
 from typing import Callable
 
 
@@ -203,6 +204,7 @@ def download_all_tiles(
     progress_callback: Callable[[int, int], None] | None = None,
     max_concurrency: int = 6,
     lang: str = "ru_RU",
+    cancel_event: Event | None = None,
 ) -> dict:
     """
     Загружает все тайлы КОНКУРЕНТНО через ThreadPoolExecutor.
@@ -235,6 +237,12 @@ def download_all_tiles(
     with ThreadPoolExecutor(max_workers=max_concurrency) as executor:
         futures = {executor.submit(_download_one, coords): coords for coords in tile_coords}
         for future in as_completed(futures):
+            if cancel_event and cancel_event.is_set():
+                cancelled_count = total - completed
+                print(f"\n[MapTiles] Загрузка отменена пользователем ({completed} завершено, {cancelled_count} пропущено)")
+                for f in futures:
+                    f.cancel()
+                break
             coords, data = future.result()
             completed += 1
             if data is not None:
