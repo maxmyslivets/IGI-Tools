@@ -256,6 +256,29 @@ def download_all_tiles(
     return {"data": tile_data, "failed": failed}
 
 
+# ---------------------------------------------------------------------------
+# Web Mercator (EPSG:3857) — метры
+# ---------------------------------------------------------------------------
+
+_WGS84_A = 6378137.0  # большая полуось эллипсоида WGS84 (радиус сферы Web Mercator)
+
+
+def lonlat_to_mercator(lon: float, lat: float) -> tuple[float, float]:
+    """(lon, lat) → (x, y) в метрах в проекции Web Mercator (EPSG:3857)."""
+    x = _WGS84_A * math.radians(lon)
+    y = _WGS84_A * math.log(math.tan(math.pi / 4.0 + math.radians(lat) / 2.0))
+    return x, y
+
+
+def get_bbox_mercator_size(
+    min_lon: float, min_lat: float, max_lon: float, max_lat: float,
+) -> tuple[float, float]:
+    """Возвращает (ширина_м, высота_м) bbox в проекции Web Mercator."""
+    x_min, y_max = lonlat_to_mercator(min_lon, max_lat)  # сев.-зап.
+    x_max, y_min = lonlat_to_mercator(max_lon, min_lat)  # юго-вост.
+    return abs(x_max - x_min), abs(y_max - y_min)
+
+
 def get_max_zoom_for_bbox(
     bbox: tuple[float, float, float, float],
     tile_provider_id: str,

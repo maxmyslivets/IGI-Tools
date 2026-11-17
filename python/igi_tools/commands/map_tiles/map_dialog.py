@@ -664,6 +664,7 @@ class MapDialog(wx.Dialog):
             # Download complete — close dialog with result
             if self._download_result:
                 self.result_data = self._download_result
+                self._download_result = None  # guarded: one shot only
                 self._poll_timer.Stop()
                 wx.CallAfter(self.EndModal, wx.ID_OK)
 
@@ -763,6 +764,12 @@ class MapDialog(wx.Dialog):
                     wx.CallAfter(self._show_error, "Не удалось склеить тайлы")
                     return
 
+                from .tile_downloader import get_bbox_mercator_size
+
+                merc_w, merc_h = get_bbox_mercator_size(
+                    min_lon, min_lat, max_lon, max_lat,
+                )
+
                 result_data = {
                     "action": "finish",
                     "provider": provider_id,
@@ -772,6 +779,8 @@ class MapDialog(wx.Dialog):
                     "png_path": stitch_result["path"],
                     "png_width": stitch_result["width"],
                     "png_height": stitch_result["height"],
+                    "mercator_width": merc_w,
+                    "mercator_height": merc_h,
                     "zoom": data.get("zoom", zoom),
                 }
 

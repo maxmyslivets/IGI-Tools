@@ -27,6 +27,9 @@ from .tile_downloader import (
 )
 from .tile_stitcher import stitch_tiles
 
+# Guard против повторного входа при регенерации AutoCAD
+_insertion_guard = False
+
 
 @command(name="IGI_MAP_TILES")
 def map_tiles() -> None:
@@ -72,6 +75,11 @@ def map_tiles() -> None:
         )
 
         # ── Шаг 2: Если тайлы уже загружены в диалоге — сразу на вставку ──
+        # Масштаб изображения в метрах (Web Mercator / EPSG:3857)
+        from .tile_downloader import get_bbox_mercator_size
+        merc_w, merc_h = get_bbox_mercator_size(*bbox)
+
+        existing_png = map_data.get("png_path")
         existing_png = map_data.get("png_path")
         if existing_png and os.path.isfile(existing_png):
             print(f"\n  Тайлы загружены в диалоге: {existing_png}")
@@ -83,11 +91,12 @@ def map_tiles() -> None:
             )
             shutil.copy2(existing_png, dst_path)
             print(f"  Скопировано в: {dst_path}")
-            _insert_image(dst_path, img_width, img_height)
+            _insert_image(dst_path, img_width, img_height, merc_w)
             print(
                 f"\n[IGI Map Tiles] Готово! Изображение сохранено:\n"
                 f"  {dst_path}"
             )
+            print("[IGI Map Tiles] RETURN (shortcut)")
             return
 
         providers = get_tile_providers()
@@ -173,8 +182,9 @@ def map_tiles() -> None:
         )
         print(f"  Сохранено: {output_path}")
 
-        # ── Шаг 6: Вставка в AutoCAD ──
-        _insert_image(output_path, result["width"], result["height"])
+        # ── Шаг 6: Вставка в AutoCAD (масштаб = метры Web Mercator) ──
+        print(f"  Масштаб изображения: ширина {merc_w:.1f} м × высота {merc_h:.1f} м")
+        _insert_image(output_path, result["width"], result["height"], merc_w)
 
         print(
             f"\n[IGI Map Tiles] Готово! Изображение сохранено:\n"
@@ -183,6 +193,7 @@ def map_tiles() -> None:
         print(f"[MapTiles] PNG сохранён: {output_path}")
 
     except Exception:
+        import traceback
         traceback.print_exc()
         print("[IGI Map Tiles] Ошибка: команда прервана.")
 
@@ -221,17 +232,36 @@ def _insert_image(
     image_path: str,
     img_width: int,
     img_height: int,
+    mercator_width: float = 0.0,
 ) -> None:
     """Вставляет PNG как RasterImage в текущий чертёж.
 
-    Пользователь указывает точку вставки. Масштаб подбирается так,
-    чтобы изображение было видимым (1:1 пиксельные единицы, если не задан
-    явный масштаб чертежа).
+    Пользователь указывает точку вставки.
+    Масштаб вычисляется автоматически из mercator_width (метры Web Mercator)
+    — изображение вставляется 1:1 к реальным метрам чертежа.
+    Если mercator_width == 0, запрашивается у пользователя.
 
     Сначала пробуется программное создание RasterImage (через CADPyRx API),
     при неудаче — используется команда AutoCAD _.IMAGEATTACH.
     """
-    import os  # noqa: F811 — уже импортирован в начале модуля
+    global _insertion_guard
+    if _insertion_guard:
+        print("  [MAP TILES] guard — повторный вход (regen/рекурсия)")
+        return
+    _insertion_guard = True
+    try:
+        _insert_image_impl(image_path, img_width, img_height, mercator_width)
+    finally:
+        _insertion_guard = False
+
+
+def _insert_image_impl(
+    image_path: str,
+    img_width: int,
+    img_height: int,
+    mercator_width: float = 0.0,
+) -> None:
+    import os  # noqa: F811
 
     # Проверить существование файла изображения
     if not os.path.isfile(image_path):
@@ -246,13 +276,17 @@ def _insert_image(
         print("[IGI Map Tiles] Вставка отменена.")
         return
 
-    # ── Запрос масштаба ──
-    res, scale = Ed.Editor.getDist(
-        ins_pt, "\nМасштаб (ширина изображения в единицах чертежа): "
-    )
-    if res != Ed.PromptStatus.eOk:
-        print("[IGI Map Tiles] Масштаб не задан — используется 1:1.")
-        scale = float(img_width)  # Приблизительный масштаб
+    # ── Масштаб: автоматический (метры) или запрос пользователя ──
+    if mercator_width > 0:
+        scale = mercator_width
+        print(f"[IGI Map Tiles] Масштаб (авто): {scale:.2f} м (ширина изображения)")
+    else:
+        res, scale = Ed.Editor.getDist(
+            ins_pt, "\nМасштаб (ширина изображения в единицах чертежа): "
+        )
+        if res != Ed.PromptStatus.eOk:
+            print("[IGI Map Tiles] Масштаб не задан — используется 1:1.")
+            scale = float(img_width)
 
     # ── Запрос угла поворота ──
     res, angle = Ed.Editor.getAngle(
@@ -427,7 +461,6 @@ def _get_or_create_image_def(
     Важно: после создания определения вызывается img_def.load()
     для принудительной загрузки данных изображения в память AutoCAD.
     """
-    import os  # noqa: F811
 
     if not os.path.isfile(image_path):
         print(f"[IGI Map Tiles] Файл не найден: {image_path}")
