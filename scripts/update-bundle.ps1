@@ -59,4 +59,12 @@ if ($rc.ExitCode -ge 8) {
 }
 
 Write-Host "==> Updated. Contents/runtime preserved."
-Write-Host "    Restart AutoCAD (or run IGI_RELOAD_ALL for Python commands)."
+
+# Пробуем отправить IGI_RELOAD_ALL в запущенный AutoCAD
+try {
+    $acad = [Runtime.InteropServices.Marshal]::GetActiveObject("AutoCAD.Application")
+    $acad.ActiveDocument.SendCommand("IGI_RELOAD_ALL`n")
+    Write-Host "    IGI_RELOAD_ALL отправлена в AutoCAD."
+} catch {
+    Write-Host "    AutoCAD not running - restart manually or run IGI_RELOAD_ALL."
+}
