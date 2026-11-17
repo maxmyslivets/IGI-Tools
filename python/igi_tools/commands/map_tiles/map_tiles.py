@@ -20,7 +20,6 @@ from pyrx import Ap, Db, Ed, Ge, command
 
 from .tile_downloader import (
     download_all_tiles,
-    get_max_zoom_for_bbox,
     get_default_providers as get_tile_providers,
     get_tiles_in_bbox,
     TileProvider,
@@ -84,15 +83,15 @@ def map_tiles() -> None:
         print(f"  Полигон: {len(polygon)} вершин")
         print(f"  BBox: {bbox}")
 
-        # ── Шаг 3: Определить зум и тайлы ──
-        print("\n[IGI Map Tiles] Определение оптимального зума...")
-        zoom = get_max_zoom_for_bbox(bbox, provider_id, max_tiles=48)
-        print(f"  Оптимальный зум: {zoom}")
+        # ── Шаг 3: Максимальный зум провайдера ──
+        zoom = provider_match.max_zoom
+        print(f"\n[IGI Map Tiles] Используется макс. зум провайдера: {zoom}")
 
         tile_coords = get_tiles_in_bbox(
             bbox[0], bbox[1], bbox[2], bbox[3], zoom
         )
         tile_count = len(tile_coords)
+
         # Вычисляем сетку тайлов для stitcher
         xs = [t[0] for t in tile_coords]
         ys = [t[1] for t in tile_coords]
@@ -103,16 +102,10 @@ def map_tiles() -> None:
         min_y, max_y = min(ys), max(ys)
         col_count = max_x - min_x + 1
         row_count = max_y - min_y + 1
-        print(
-            f"  Тайлов для загрузки: {tile_count} "
-            f"({col_count}×{row_count})"
-        )
+        print(f"  Сетка: {col_count}×{row_count} ({tile_count} тайлов)")
 
         if tile_count > 100:
-            print(
-                f"\n  ВНИМАНИЕ: {tile_count} тайлов. "
-                f"Загрузка может занять некоторое время."
-            )
+            print(f"  ВНИМАНИЕ: {tile_count} тайлов — загрузка может занять время.")
 
         # ── Шаг 4: Проверка доступа — загрузить первый тайл ──
         print("\n[IGI Map Tiles] Загрузка тайлов...")

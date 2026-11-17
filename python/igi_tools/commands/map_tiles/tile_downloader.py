@@ -62,7 +62,7 @@ def get_default_providers() -> list[TileProvider]:
         TileProvider(
             id="yandex",
             name="Yandex Maps (Спутник)",
-            url_template="https://core-renderer-tiles.maps.yandex.net/tiles?l=sat&x={x}&y={y}&z={z}&lang={lang}",
+            url_template="https://sat01.maps.yandex.net/tiles?l=sat&x={x}&y={y}&z={z}&lang={lang}",
             max_zoom=19,
             format="jpg",
             referer="https://yandex.ru/maps",

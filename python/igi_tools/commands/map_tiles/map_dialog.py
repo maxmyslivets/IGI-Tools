@@ -29,7 +29,7 @@ var tileProviders = {
     },
     "yandex": {
         "name": "Yandex",
-        "url": "https://core-renderer-tiles.maps.yandex.net/tiles?l=sat&x={x}&y={y}&z={z}&lang=ru_RU",
+        "url": "https://sat01.maps.yandex.net/tiles?l=sat&x={x}&y={y}&z={z}&lang=ru_RU",
         "maxZoom": 19,
         "attribution": "© Яндекс Карты"
     }
@@ -164,9 +164,12 @@ var drawLayer = L.featureGroup().addTo(map);
 var isDrawing = false;
 var tempPoints = [];
 var tempMarkers = [];
+// Сохраняем зум на момент начала рисования, чтобы onFinish вернул его
+var zoomBeforeDraw = map.getZoom();
 
 function onDrawPolygon() {
     if (isDrawing) { cancelDrawing(); return; }
+    zoomBeforeDraw = map.getZoom();
     startDrawing();
 }
 
@@ -220,7 +223,8 @@ function finishDrawing() {
     var area = L.GeometryUtil ? L.GeometryUtil.geodesicArea(drawnPolygon.getLatLngs()[0]) : 0;
     var coords = getPolygonCoords();
     var bounds = drawnPolygon.getBounds();
-    map.fitBounds(bounds);
+    map.fitBounds(bounds, {padding: [10, 10]});
+    // НЕ перезаписываем zoomBeforeDraw — зум для загрузки остаётся тот, что был ДО fitBounds
     setStatus(
         coords.length + ' вершин, S=' + (area/1000000).toFixed(3) + ' km²' +
         ' | SW: ' + bounds.getSouthWest().lat.toFixed(4) + ',' +
@@ -258,7 +262,6 @@ function onFinish() {
     }
     var coords = getPolygonCoords();
     var bounds = drawnPolygon.getBounds();
-    var zoom = map.getZoom();
     var result = JSON.stringify({
         action: 'finish',
         provider: currentProvider,
@@ -269,7 +272,7 @@ function onFinish() {
             max_lat: bounds.getNorthEast().lat,
             max_lon: bounds.getNorthEast().lng,
         },
-        zoom: zoom,
+        zoom: zoomBeforeDraw,
     });
     try { document.title = 'MAP_RESULT:' + result; } catch(e) {}
 }
