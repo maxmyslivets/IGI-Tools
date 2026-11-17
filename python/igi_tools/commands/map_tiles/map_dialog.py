@@ -675,7 +675,9 @@ class MapDialog(wx.Dialog):
         """Запускает фоновую загрузку тайлов и показывает прогресс в HTML."""
         from .tile_downloader import (
             download_all_tiles,
+            get_bbox_mercator_size,
             get_default_providers,
+            get_tile_grid_bbox,
             get_tiles_in_bbox,
         )
         from .tile_stitcher import stitch_tiles
@@ -764,11 +766,32 @@ class MapDialog(wx.Dialog):
                     wx.CallAfter(self._show_error, "Не удалось склеить тайлы")
                     return
 
-                from .tile_downloader import get_bbox_mercator_size
+                grid_bbox = get_tile_grid_bbox(tile_coords)
+                print(f"[MapTiles][DEBUG] tile_coords count: {len(tile_coords)}")
+                xs = [t[0] for t in tile_coords]
+                ys = [t[1] for t in tile_coords]
+                print(f"[MapTiles][DEBUG] tile grid: x=[{min(xs)},{max(xs)}], y=[{min(ys)},{max(ys)}], zoom={tile_coords[0][2]}")
+                print(f"[MapTiles][DEBUG] grid_bbox: {grid_bbox}")
+                merc_w, merc_h = get_bbox_mercator_size(*grid_bbox)
+                print(f"[MapTiles][DEBUG] mercator_width={merc_w:.2f} м, mercator_height={merc_h:.2f} м")
 
-                merc_w, merc_h = get_bbox_mercator_size(
-                    min_lon, min_lat, max_lon, max_lat,
-                )
+                # Сохраняем метаданные JSON рядом с PNG
+                meta_path = stitch_result["path"] + ".meta.json" if stitch_result.get("path") else None
+                if meta_path:
+                    try:
+                        with open(meta_path, "w", encoding="utf-8") as mf:
+                            json.dump({
+                                "mercator_width_m": round(merc_w, 2),
+                                "mercator_height_m": round(merc_h, 2),
+                                "png_width_px": stitch_result["width"],
+                                "png_height_px": stitch_result["height"],
+                                "meters_per_pixel_x": round(merc_w / stitch_result["width"], 6),
+                                "meters_per_pixel_y": round(merc_h / stitch_result["height"], 6),
+                                "grid_lon_lat": list(grid_bbox),
+                                "zoom": zoom,
+                            }, mf, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
 
                 result_data = {
                     "action": "finish",
@@ -781,6 +804,7 @@ class MapDialog(wx.Dialog):
                     "png_height": stitch_result["height"],
                     "mercator_width": merc_w,
                     "mercator_height": merc_h,
+                    "grid_bbox": list(grid_bbox),
                     "zoom": data.get("zoom", zoom),
                 }
 

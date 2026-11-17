@@ -279,6 +279,33 @@ def get_bbox_mercator_size(
     return abs(x_max - x_min), abs(y_max - y_min)
 
 
+def get_tile_grid_bbox(
+    tile_coords: list[tuple[int, int, int]],
+) -> tuple[float, float, float, float]:
+    """По списку тайлов (x, y, zoom) возвращает точные lat/lon-границы сетки.
+
+    Границы берутся по внешним краям угловых тайлов, а не по исходному bbox
+    полигона. Это даёт правильный размер для масштабирования склеенного
+    изображения в AutoCAD.
+    """
+    if not tile_coords:
+        return 0.0, 0.0, 0.0, 0.0
+
+    xs = [t[0] for t in tile_coords]
+    ys = [t[1] for t in tile_coords]
+    zoom = tile_coords[0][2]
+
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+
+    # Северо-западный угол верхнего левого тайла
+    lat_nw, lon_nw = tile_to_latlon(min_x, min_y, zoom)
+    # Юго-восточный угол нижнего правого тайла
+    lat_se, lon_se = tile_to_latlon(max_x + 1, max_y + 1, zoom)
+
+    return lon_nw, lat_se, lon_se, lat_nw  # min_lon, min_lat, max_lon, max_lat
+
+
 def get_max_zoom_for_bbox(
     bbox: tuple[float, float, float, float],
     tile_provider_id: str,

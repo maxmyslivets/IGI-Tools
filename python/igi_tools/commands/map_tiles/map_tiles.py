@@ -21,7 +21,9 @@ from pyrx import Ap, Db, Ed, Ge, command
 
 from .tile_downloader import (
     download_all_tiles,
+    get_bbox_mercator_size,
     get_default_providers as get_tile_providers,
+    get_tile_grid_bbox,
     get_tiles_in_bbox,
     TileProvider,
 )
@@ -75,23 +77,27 @@ def map_tiles() -> None:
         )
 
         # ── Шаг 2: Если тайлы уже загружены в диалоге — сразу на вставку ──
-        # Масштаб изображения в метрах (Web Mercator / EPSG:3857)
-        from .tile_downloader import get_bbox_mercator_size
-        merc_w, merc_h = get_bbox_mercator_size(*bbox)
-
-        existing_png = map_data.get("png_path")
         existing_png = map_data.get("png_path")
         if existing_png and os.path.isfile(existing_png):
             print(f"\n  Тайлы загружены в диалоге: {existing_png}")
             img_width = map_data.get("png_width", 0)
             img_height = map_data.get("png_height", 0)
+            merc_w = map_data.get("mercator_width", 0.0)
+            merc_h = map_data.get("mercator_height", 0.0)
+            print(f"[MapTiles][DEBUG] shortcut merc_w={merc_w:.2f} м, merc_h={merc_h:.2f} м, img={img_width}x{img_height}")
             dwg_path = _get_dwg_dir()
             dst_path = os.path.normpath(
                 os.path.join(dwg_path, os.path.basename(existing_png))
             )
             shutil.copy2(existing_png, dst_path)
             print(f"  Скопировано в: {dst_path}")
-            _insert_image(dst_path, img_width, img_height, merc_w)
+            # Коррекция масштаба: метры Web Mercator → реальные метры на широте участка
+            grid_meta = map_data.get("bbox", {})
+            lat_c = (grid_meta.get("min_lat", 0) + grid_meta.get("max_lat", 0)) / 2.0
+            scale_correction = math.cos(math.radians(lat_c))
+            print(f"[MapTiles] Коррекция широты {lat_c:.4f}°: ×{scale_correction:.6f}")
+            merc_w_real = merc_w * scale_correction
+            _insert_image(dst_path, img_width, img_height, merc_w_real)
             print(
                 f"\n[IGI Map Tiles] Готово! Изображение сохранено:\n"
                 f"  {dst_path}"
@@ -163,6 +169,13 @@ def map_tiles() -> None:
                 print("  Все тайлы не загружены. Попробуйте другой провайдер.")
                 return
 
+        # ── Вычисляем масштаб от реальной сетки тайлов (не от bbox полигона) ──
+        grid_bbox = get_tile_grid_bbox(tile_coords)
+        print(f"[MapTiles][DEBUG] tile grid: x=[{min_x},{max_x}], y=[{min_y},{max_y}], zoom={zoom}")
+        print(f"[MapTiles][DEBUG] grid_bbox: {grid_bbox}")
+        merc_w, merc_h = get_bbox_mercator_size(*grid_bbox)
+        print(f"[MapTiles][DEBUG] mercator_width={merc_w:.2f} м, mercator_height={merc_h:.2f} м")
+
         # ── Шаг 5: Склеить в один PNG ──
         print("\n[IGI Map Tiles] Склейка тайлов...")
 
@@ -182,9 +195,13 @@ def map_tiles() -> None:
         )
         print(f"  Сохранено: {output_path}")
 
-        # ── Шаг 6: Вставка в AutoCAD (масштаб = метры Web Mercator) ──
-        print(f"  Масштаб изображения: ширина {merc_w:.1f} м × высота {merc_h:.1f} м")
-        _insert_image(output_path, result["width"], result["height"], merc_w)
+        # ── Шаг 6: Вставка в AutoCAD ──
+        _, grid_min_lat, _, grid_max_lat = grid_bbox
+        lat_center = (grid_min_lat + grid_max_lat) / 2.0
+        scale_correction = math.cos(math.radians(lat_center))
+        merc_w_real = merc_w * scale_correction
+        print(f"  Масштаб изображения: ширина {merc_w:.1f} м (WM) → {merc_w_real:.1f} м (реал), коррекция {scale_correction:.6f}")
+        _insert_image(output_path, result["width"], result["height"], merc_w_real)
 
         print(
             f"\n[IGI Map Tiles] Готово! Изображение сохранено:\n"
