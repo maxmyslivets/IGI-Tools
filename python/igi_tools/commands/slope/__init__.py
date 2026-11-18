@@ -459,7 +459,7 @@ def slope_create() -> None:
                 )
 
                 model = Db.BlockTableRecord(
-                    db.getModelSpaceId(), Db.OpenMode.kForWrite
+                    db.modelSpaceId(), Db.OpenMode.kForWrite
                 )
                 line = Db.Line(top_pts[i], end_pt)
                 line.setDatabaseDefaults(db)
@@ -469,8 +469,7 @@ def slope_create() -> None:
                         group_guid, layer_name, i, is_short, top_handle_str,
                     )
                 )
-                model.append(line)
-                mgr.addNewlyCreatedDBRObject(line, True)
+                model.appendAcDbEntity(line)
                 model.close()
                 stroke_handles.append(line.objectId().handle().toString())
 
@@ -822,7 +821,7 @@ def _rebuild_slope(
                 bottom_offset, mid_ratio, use_mid_length, mid_length,
             )
 
-            model = Db.BlockTableRecord(db.getModelSpaceId(), Db.OpenMode.kForWrite)
+            model = Db.BlockTableRecord(db.modelSpaceId(), Db.OpenMode.kForWrite)
             line = Db.Line(tp_3d, end_pt)
             line.setDatabaseDefaults(db)
             line.setLayer(layer_id)
@@ -831,8 +830,7 @@ def _rebuild_slope(
                     group_guid, layer_name, i, is_short, top_handle_str,
                 )
             )
-            model.append(line)
-            mgr.addNewlyCreatedDBRObject(line, True)
+            model.appendAcDbEntity(line)
             model.close()
             stroke_handles.append(line.objectId().handle().toString())
 

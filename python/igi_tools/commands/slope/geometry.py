@@ -305,11 +305,11 @@ def _make_line(
     layer_id: Db.ObjectId,
 ) -> Db.ObjectId:
     """Create a Line in modelspace and return its ObjectId."""
-    model = Db.BlockTableRecord(db.getModelSpaceId(), Db.OpenMode.kForWrite)
+    model = Db.BlockTableRecord(db.modelSpaceId(), Db.OpenMode.kForWrite)
     line = Db.Line(start_pt, end_pt)
     line.setDatabaseDefaults(db)
     line.setLayer(layer_id)
-    model.append(line)
+    model.appendAcDbEntity(line)
     model.close()
     return line.objectId()
 
