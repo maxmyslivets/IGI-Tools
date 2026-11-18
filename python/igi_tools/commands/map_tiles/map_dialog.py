@@ -212,6 +212,11 @@ _LEAFLET_HTML = r"""<!DOCTYPE html>
   <button id="zoomOutBtn" title="Отдалить"><svg viewBox="0 0 32 32" width="20" height="20"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M 21,21 L 28,28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M 10,14 L 18,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
   <button id="fitBtn" title="Показать все"><svg viewBox="0 0 32 32" width="20" height="20"><path d="M 5,5 L 11,5 L 11,7 L 7,7 L 7,11 L 5,11 Z" fill="currentColor"/><path d="M 21,5 L 27,5 L 27,11 L 25,11 L 25,7 L 21,7 Z" fill="currentColor"/><path d="M 5,21 L 7,21 L 7,25 L 11,25 L 11,27 L 5,27 Z" fill="currentColor"/><path d="M 21,27 L 27,27 L 27,21 L 25,21 L 25,25 L 21,25 Z" fill="currentColor"/></svg></button>
   <div class="sep"></div>
+  <!-- Tile zoom level selector -->
+<button id="zoomDownBtn" title="Уменьшить зум (−1)">−</button>
+  <span id="zoomValue" style="font-size:14px;font-weight:bold;color:#ecf0f1;width:36px;text-align:center;line-height:36px;cursor:default;" title="Текущий зум карты и тайлов">7</span>
+  <button id="zoomUpBtn" title="Увеличить зум (+1)">+</button>
+  <div class="sep"></div>
   <!-- Drawing tools (bottom group) -->
   <button id="drawBtn" title="Прямоугольная область"><svg viewBox="0 0 32 32" width="20" height="20"><rect x="4" y="4" width="24" height="24" rx="1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M 4,4 L 28,28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3,3" stroke-linecap="round"/></svg></button>
   <button id="clearBtn" title="Очистить всё"><svg viewBox="0 0 32 32" width="20" height="20"><path d="M 6,4 L 4,6 L 14,16 L 4,26 L 6,28 L 16,18 L 26,28 L 28,26 L 18,16 L 28,6 L 26,4 L 16,14 Z" fill="currentColor"/></svg></button>
@@ -229,6 +234,7 @@ var tileLayer = null;
 var map = null;
 var drawLayer = L.featureGroup();
 var zoomBeforeDraw = 7;
+var tileZoom = 7;   // синхронизируется с zoom карты после инициализации
 
 var isDrawing = false;
 var rectangle = null;          // L.Rectangle
@@ -263,6 +269,14 @@ tileLayer = L.tileLayer('https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=ru
     attribution: '\u00a9 Google',
     tms: false
 }).addTo(map);
+
+// ---- Синхронизация zoom карты и zoom тайлов ----
+tileZoom = map.getZoom();
+document.getElementById('zoomValue').textContent = tileZoom;
+map.on('zoomend', function() {
+    tileZoom = map.getZoom();
+    document.getElementById('zoomValue').textContent = tileZoom;
+});
 
 // ---- Drawing ----
 var _dragAnchor = null; // противоположный угол при перетаскивании
@@ -508,7 +522,7 @@ function onFinish() {
             max_lon: bounds.getNorthEast().lng,
         },
         total_area_sqm: totalArea,
-        zoom: zoomBeforeDraw,
+        zoom: tileZoom,
     });
     try { document.title = 'MAP_RESULT:' + result; } catch(e) {}
 }
@@ -638,6 +652,16 @@ document.getElementById('searchInput').addEventListener('keydown', function(e) {
 document.getElementById('zoomInBtn').addEventListener('click', function() { map.zoomIn(); });
 document.getElementById('zoomOutBtn').addEventListener('click', function() { map.zoomOut(); });
 document.getElementById('fitBtn').addEventListener('click', onFit);
+
+// ---- Tile zoom controls ----
+document.getElementById('zoomUpBtn').addEventListener('click', function() {
+    map.setZoom(map.getZoom() + 1);
+});
+document.getElementById('zoomDownBtn').addEventListener('click', function() {
+    map.setZoom(map.getZoom() - 1);
+});
+
+
 
 // Close search results when clicking outside
 document.addEventListener('click', function(e) {
@@ -806,7 +830,7 @@ class MapDialog(wx.Dialog):
                     wx.CallAfter(self._show_error, "Провайдер не найден")
                     return
 
-                zoom = provider_match.max_zoom
+                zoom = min(data.get("zoom", provider_match.max_zoom), provider_match.max_zoom)
                 min_lon = bbox.get("min_lon")
                 min_lat = bbox.get("min_lat")
                 max_lon = bbox.get("max_lon")
