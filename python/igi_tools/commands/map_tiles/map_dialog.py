@@ -241,6 +241,11 @@ var cornerPoints = null;       // { nw, ne, se, sw }
 var firstCornerPt = null;
 var previewRect = null;
 
+// ---- Move (drag whole rectangle) state ----
+var isMoving = false;
+var moveStartLatLng = null;
+var _savedDragPoints = null;
+
 // ---- Geodesic area (Earth authalic sphere) ----
 function geodesicArea(latlngs) {
     if (!latlngs || latlngs.length < 3) return 0;
@@ -291,6 +296,7 @@ function toggleDrawMode() {
 }
 
 function startDrawing() {
+    disableMoveMode();
     // Удалить предыдущий полигон, если есть
     if (rectangle) {
         if (drawLayer.hasLayer(rectangle)) drawLayer.removeLayer(rectangle);
@@ -382,6 +388,7 @@ function finishRectangle(corner1, corner2) {
     createCornerMarkers();
     document.getElementById('drawBtn').classList.remove('active');
     updateStatus();
+    enableMoveMode();
 }
 
 function createCornerMarkers() {
@@ -442,8 +449,74 @@ function onCornerDrag(e) {
     updateStatus();
 }
 
+// ---- Move rectangle (drag whole polygon) ----
+function enableMoveMode() {
+    if (!rectangle) return;
+    _savedDragPoints = null;
+    rectangle.off('mousedown', onRectDragStart);
+    rectangle.on('mousedown', onRectDragStart);
+    rectangle.setStyle({ cursor: 'grab' });
+}
+
+function disableMoveMode() {
+    if (!rectangle) return;
+    rectangle.off('mousedown', onRectDragStart);
+    rectangle.setStyle({ cursor: '' });
+    isMoving = false;
+    _savedDragPoints = null;
+    map.off('mousemove', onRectDragMove);
+    map.off('mouseup', onRectDragEndGlobal);
+    try { map.dragging.enable(); } catch(e) {}
+}
+
+function onRectDragStart(e) {
+    L.DomEvent.stopPropagation(e.originalEvent);
+    // Отключаем панорамирование карты — только ЛКМ конфликтует
+    try { map.dragging.disable(); } catch(ex) {}
+    isMoving = true;
+    moveStartLatLng = e.latlng;
+    _savedDragPoints = {};
+    CORNER_KEYS.forEach(function(key) {
+        _savedDragPoints[key] = L.latLng(cornerPoints[key].lat, cornerPoints[key].lng);
+    });
+    map.on('mousemove', onRectDragMove);
+    map.on('mouseup', onRectDragEndGlobal);
+    rectangle.setStyle({ cursor: 'grabbing' });
+    L.DomEvent.preventDefault(e.originalEvent);
+}
+
+function onRectDragMove(e) {
+    if (!isMoving || !_savedDragPoints) return;
+    var latDiff = e.latlng.lat - moveStartLatLng.lat;
+    var lngDiff = e.latlng.lng - moveStartLatLng.lng;
+    CORNER_KEYS.forEach(function(key) {
+        cornerPoints[key] = L.latLng(
+            _savedDragPoints[key].lat + latDiff,
+            _savedDragPoints[key].lng + lngDiff
+        );
+    });
+    rectangle.setBounds([cornerPoints.se, cornerPoints.nw]);
+    cornerMarkers.forEach(function(m) {
+        m.setLatLng(cornerPoints[m._cornerKey]);
+    });
+    updateStatus();
+}
+
+function onRectDragEndGlobal(e) {
+    if (!isMoving) return;
+    isMoving = false;
+    CORNER_KEYS.forEach(function(key) {
+        _savedDragPoints[key] = L.latLng(cornerPoints[key].lat, cornerPoints[key].lng);
+    });
+    map.off('mousemove', onRectDragMove);
+    map.off('mouseup', onRectDragEndGlobal);
+    rectangle.setStyle({ cursor: 'grab' });
+    try { map.dragging.enable(); } catch(e) {}
+}
+
 // ---- Clear ----
 function onClear() {
+    disableMoveMode();
     if (rectangle && drawLayer.hasLayer(rectangle)) {
         drawLayer.removeLayer(rectangle);
     }
