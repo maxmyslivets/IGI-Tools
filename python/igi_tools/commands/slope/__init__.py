@@ -174,10 +174,7 @@ def _find_role_oid(
 ) -> Db.ObjectId | None:
     """Scan modelspace for entity with matching group_guid and role."""
     try:
-        bt = Db.BlockTable(db.blockTableId(), Db.OpenMode.kForRead)
-        ms_id = bt.getAt(Db.BlockTableRecord.modelSpace())
-        bt.close()
-        ms = Db.BlockTableRecord(ms_id, Db.OpenMode.kForRead)
+        ms = Db.BlockTableRecord(db.modelSpaceId(), Db.OpenMode.kForRead)
         for oid in ms.objectIds():
             try:
                 ent = Db.Entity(oid, Db.OpenMode.kForRead)
@@ -207,10 +204,7 @@ def _find_stroke_oids_in_group(
     """Find all stroke ObjectIds for a group."""
     result: list[Db.ObjectId] = []
     try:
-        bt = Db.BlockTable(db.blockTableId(), Db.OpenMode.kForRead)
-        ms_id = bt.getAt(Db.BlockTableRecord.modelSpace())
-        bt.close()
-        ms = Db.BlockTableRecord(ms_id, Db.OpenMode.kForRead)
+        ms = Db.BlockTableRecord(db.modelSpaceId(), Db.OpenMode.kForRead)
         for oid in ms.objectIds():
             try:
                 ent = Db.Entity(oid, Db.OpenMode.kForRead)
@@ -575,18 +569,15 @@ def slope_edit() -> None:
             print("\n[IGI Tools] Верхний контур без XData откоса.")
             return
 
-        saved = {
-            "step": _DEFAULT_STEP,
-            "bottom_offset": _xdata_get_double(txd, 5) or _DEFAULT_BOTTOM_OFFSET,
-            "short_count": _xdata_get_int(txd, 6) or _DEFAULT_SHORT_COUNT,
-            "use_mid_length": bool(_xdata_get_int(txd, 8) or _DEFAULT_USE_MID_LENGTH),
-            "mid_ratio": _xdata_get_double(txd, 7) or _DEFAULT_MID_RATIO,
-            "mid_length": _xdata_get_double(txd, 9) or _DEFAULT_MID_LENGTH,
-            "layer": _DEFAULT_LAYER,
-        }
+        bottom_offset = _xdata_get_double(txd, 5) or _DEFAULT_BOTTOM_OFFSET
+        short_count = _xdata_get_int(txd, 6) or _DEFAULT_SHORT_COUNT
+        use_mid_length = bool(_xdata_get_int(txd, 8) or _DEFAULT_USE_MID_LENGTH)
+        mid_ratio = _xdata_get_double(txd, 7) or _DEFAULT_MID_RATIO
+        mid_length = _xdata_get_double(txd, 9) or _DEFAULT_MID_LENGTH
 
         # Try reading layer from first stroke
         stroke_handles = _top_read_stroke_handles(db, top_oid)
+        layer_name = _DEFAULT_LAYER
         if stroke_handles:
             soid = _try_get_oid_by_handle(db, stroke_handles[0])
             if soid is not None:
@@ -596,38 +587,164 @@ def slope_edit() -> None:
                     if sx:
                         lyr = _xdata_get_str(sx, 4)
                         if lyr:
-                            saved["layer"] = lyr
+                            layer_name = lyr
                     se.close()
                 except Exception:
                     pass
         te.close()
 
-        # ── Dialog ──
-        result = _show_dialog(saved, top_selected=True, bottom_selected=True)
-        if result is None or result.get("action") != "ok":
+        # ── Build stroke data for Jig ──
+
+        # Open top/bottom curves for geometry
+        top_curve_raw = Db.Entity(top_oid, Db.OpenMode.kForRead)
+        top_curve = Db.Curve.cast(top_curve_raw)
+        bot_curve_raw = Db.Entity(bot_oid, Db.OpenMode.kForRead)
+        bot_curve = Db.Curve.cast(bot_curve_raw)
+        if top_curve is None or bot_curve is None:
+            print("\n[IGI Tools] Контуры не являются кривыми.")
+            return
+
+        bot_len = _get_curve_length(bot_curve)
+
+        # Find all stroke OIDs by scanning modelspace (more reliable than Xrecord)
+        stroke_oids = _find_stroke_oids_in_group(db, group_guid)
+        if not stroke_oids:
+            print("\n[IGI Tools] Нет штрихов в группе (сканирование ModelSpace).")
+            top_curve.close()
+            bot_curve.close()
+            return
+
+        # Build (index, OID, top_pt, bottom_dist) for each stroke
+        stroke_infos: list[tuple[int, Db.ObjectId, Ge.Point3d, float]] = []
+        for s_oid in stroke_oids:
+            try:
+                line = Db.Entity(s_oid, Db.OpenMode.kForRead)
+                line_curve = Db.Curve.cast(line)
+                if line_curve is None:
+                    line.close()
+                    continue
+                line_xdata = _read_xdata(line)
+                if line_xdata is None:
+                    line.close()
+                    continue
+                idx = _xdata_get_int(line_xdata, 5)
+                if idx is None:
+                    line.close()
+                    continue
+                top_pt = line_curve.startPoint()
+                bot_pt = line_curve.endPoint()
+                try:
+                    bot_dist = bot_curve.getDistAtPoint(bot_pt)
+                except Exception:
+                    bot_dist = 0.0
+                stroke_infos.append((idx, s_oid, top_pt, bot_dist))
+                line.close()
+            except Exception:
+                pass
+
+        # Sort by index
+        stroke_infos.sort(key=lambda x: x[0])
+        total_strokes = len(stroke_infos)
+        top_pts = [s[2] for s in stroke_infos]
+        orig_bot_dists = [s[3] for s in stroke_infos]
+
+        # Step from XData (stored in num_strokes slot) – estimate from existing strokes
+        step = bot_len / max(total_strokes - 1, 1) if total_strokes > 1 else 1.0
+
+        # Find selected stroke by ObjectId (from entSel)
+        sel_array_idx = next(
+            (i for i, s in enumerate(stroke_infos) if s[1] == oid),
+            None,
+        )
+        if sel_array_idx is None:
+            print("\n[IGI Tools] Выбранный штрих не найден среди штрихов группы.")
+            top_curve.close()
+            bot_curve.close()
+            return
+
+        # Project plane for 3D curve reads
+        plane_normal = Ed.Editor.ucsNormalVector()
+
+        # ── Jig ──
+        from igi_tools.commands.slope.jig import SlopeEditJig
+        jig = SlopeEditJig(
+            top_curve, bot_curve,
+            top_pts, orig_bot_dists,
+            sel_array_idx, bot_len, total_strokes,
+            step, bottom_offset, short_count,
+            use_mid_length, mid_ratio, mid_length,
+            plane_normal,
+        )
+        drag_status = jig.drag()
+
+        # Close curves
+        top_curve.close()
+        bot_curve.close()
+
+        if drag_status != Ed.DragStatus.kNormal:
             print("\n[IGI Tools] Редактирование отменено.")
             return
 
-        # ── Erase old and rebuild ──
+        # ── Apply: erase old, create new, update XData ──
         _erase_strokes_in_group(db, group_guid)
 
-        _rebuild_slope(
-            db,
-            top_oid,
-            bot_oid,
-            group_guid,
-            result["step"],
-            result["bottom_offset"],
-            result["short_count"],
-            result["use_mid_length"],
-            result["mid_ratio"],
-            result["mid_length"],
-            result["layer"],
-        )
+        # Get final end points from Jig
+        new_end_pts = jig.get_new_end_pts()
+        if not new_end_pts or len(new_end_pts) != total_strokes:
+            print("\n[IGI Tools] Не удалось получить результат редактирования.")
+            return
 
-        _save_settings(result)
+        # Read new bottom distances from Jig
+        new_bot_dists = jig.get_new_bottom_dists()
 
-        print("\n[IGI Tools] Откос отредактирован.")
+        mgr = db.transactionManager()
+        tr = mgr.startTransaction()
+        try:
+            _ensure_regapp(db)
+            layer_id = _ensure_layer(db, layer_name)
+            top_handle_str = top_oid.handle().toString()
+            bot_handle_str = bot_oid.handle().toString()
+            new_stroke_handles: list[str] = []
+
+            for i in range(total_strokes):
+                is_short = _is_short_stroke(i, short_count)
+                end_pt = new_end_pts[i]
+
+                model = Db.BlockTableRecord(db.modelSpaceId(), Db.OpenMode.kForWrite)
+                line = Db.Line(top_pts[i], end_pt)
+                line.setDatabaseDefaults(db)
+                line.setLayer(layer_id)
+                line.setXData(
+                    _make_stroke_xdata(
+                        group_guid, layer_name, i, is_short, top_handle_str,
+                    )
+                )
+                model.appendAcDbEntity(line)
+                model.close()
+                new_stroke_handles.append(line.objectId().handle().toString())
+
+            # Update Top XData
+            top_ent = tr.getObject(top_oid, Db.OpenMode.kForWrite)
+            top_ent.setXData(
+                _make_top_xdata(
+                    group_guid, total_strokes, bottom_offset, short_count,
+                    mid_ratio, use_mid_length, mid_length, bot_handle_str,
+                )
+            )
+
+            # Update Bottom XData
+            bot_ent = tr.getObject(bot_oid, Db.OpenMode.kForWrite)
+            bot_ent.setXData(_make_bottom_xdata(group_guid, top_handle_str))
+
+            # Update Xrecord
+            _xwrite_stroke_handles(tr, top_oid, new_stroke_handles)
+
+            mgr.endTransaction()
+        except Exception:
+            mgr.abortTransaction()
+            raise
+
+        print(f"\n[IGI Tools] Откос отредактирован: {total_strokes} штрихов.")
 
     except Exception:
         traceback.print_exc()
