@@ -207,15 +207,13 @@ _LEAFLET_HTML = r"""<!DOCTYPE html>
 </div>
 
 <div id="toolPanel">
-  <!-- Navigation (top group) -->
-  <button id="zoomInBtn" title="Приблизить"><svg viewBox="0 0 32 32" width="20" height="20"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M 21,21 L 28,28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M 10,14 L 18,14 M 14,10 L 14,18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-  <button id="zoomOutBtn" title="Отдалить"><svg viewBox="0 0 32 32" width="20" height="20"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M 21,21 L 28,28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M 10,14 L 18,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <!-- Navigation -->
   <button id="fitBtn" title="Показать все"><svg viewBox="0 0 32 32" width="20" height="20"><path d="M 5,5 L 11,5 L 11,7 L 7,7 L 7,11 L 5,11 Z" fill="currentColor"/><path d="M 21,5 L 27,5 L 27,11 L 25,11 L 25,7 L 21,7 Z" fill="currentColor"/><path d="M 5,21 L 7,21 L 7,25 L 11,25 L 11,27 L 5,27 Z" fill="currentColor"/><path d="M 21,27 L 27,27 L 27,21 L 25,21 L 25,25 L 21,25 Z" fill="currentColor"/></svg></button>
   <div class="sep"></div>
   <!-- Tile zoom level selector -->
-<button id="zoomDownBtn" title="Уменьшить зум (−1)">−</button>
+<button id="zoomDownBtn" title="Уменьшить зум (−1)"><svg viewBox="0 0 32 32" width="20" height="20"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M 21,21 L 28,28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M 10,14 L 18,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
   <span id="zoomValue" style="font-size:14px;font-weight:bold;color:#ecf0f1;width:36px;text-align:center;line-height:36px;cursor:default;" title="Текущий зум карты и тайлов">7</span>
-  <button id="zoomUpBtn" title="Увеличить зум (+1)">+</button>
+<button id="zoomUpBtn" title="Увеличить зум (+1)"><svg viewBox="0 0 32 32" width="20" height="20"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M 21,21 L 28,28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M 10,14 L 18,14 M 14,10 L 14,18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
   <div class="sep"></div>
   <!-- Drawing tools (bottom group) -->
   <button id="drawBtn" title="Прямоугольная область"><svg viewBox="0 0 32 32" width="20" height="20"><rect x="4" y="4" width="24" height="24" rx="1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M 4,4 L 28,28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3,3" stroke-linecap="round"/></svg></button>
@@ -649,8 +647,6 @@ document.getElementById('searchInput').addEventListener('keydown', function(e) {
         doSearch();
     }
 });
-document.getElementById('zoomInBtn').addEventListener('click', function() { map.zoomIn(); });
-document.getElementById('zoomOutBtn').addEventListener('click', function() { map.zoomOut(); });
 document.getElementById('fitBtn').addEventListener('click', onFit);
 
 // ---- Tile zoom controls ----
