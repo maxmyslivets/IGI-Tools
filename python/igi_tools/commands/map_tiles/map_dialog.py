@@ -291,9 +291,20 @@ function toggleDrawMode() {
 }
 
 function startDrawing() {
-    isDrawing = true;
-    firstCornerPt = null;
+    // Удалить предыдущий полигон, если есть
+    if (rectangle) {
+        if (drawLayer.hasLayer(rectangle)) drawLayer.removeLayer(rectangle);
+        rectangle = null;
+    }
+    clearCornerMarkers();
+    cornerPoints = null;
+    if (previewRect && drawLayer.hasLayer(previewRect)) {
+        drawLayer.removeLayer(previewRect);
+    }
     previewRect = null;
+    firstCornerPt = null;
+
+    isDrawing = true;
     zoomBeforeDraw = map.getZoom();
     map.getContainer().style.cursor = 'crosshair';
     map.on('click', onRectClick);
