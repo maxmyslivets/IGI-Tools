@@ -18,6 +18,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+import wx  # noqa: E402 — CADPyRx bundle гарантирует наличие wxPython
+import wx.html  # noqa: E402 — HtmlWindow для рендеринга release notes
+
 GITHUB_OWNER = "maxmyslivets"
 GITHUB_REPO = "IGI-Tools"
 RELEASES_API = (
@@ -28,6 +31,9 @@ RELEASES_PAGE = (
 )
 INSTALLER_NAME_RE = re.compile(r"^IGITools-setup-.*\.exe$", re.IGNORECASE)
 USER_AGENT = "IGI-Tools-Updater"
+
+_SETTINGS_DIR = Path.home() / ".igi-tools"
+_SETTINGS_FILE = _SETTINGS_DIR / "updater_settings.json"
 
 _check_started = False
 _declined_this_session = False
@@ -217,6 +223,122 @@ def _format_release_notes(notes: str, *, max_chars: int = 1200) -> str:
     return cleaned
 
 
+def _markdown_to_html(text: str) -> str:
+    """Конвертировать markdown в HTML для wx.html.HtmlWindow."""
+    text = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    # Вырезать HTML-картинки и picture-блоки
+    text = re.sub(r"<picture[^>]*>.*?</picture>", "", text, flags=re.DOTALL)
+    text = re.sub(r"<img[^>]*/?>", "", text, flags=re.DOTALL)
+    if not text.strip():
+        return ""
+
+    lines = text.split("\n")
+    html_parts: list[str] = []
+    in_code_block = False
+    code_buf: list[str] = []
+    in_list = False
+
+    def _close_list() -> None:
+        nonlocal in_list
+        if in_list:
+            html_parts.append("</ul>")
+            in_list = False
+
+    def _inline(line: str) -> str:
+        # Картинки (![alt](url)) удаляем полностью — не загружаем
+        line = re.sub(r"!\[[^\]]*\]\([^)]+\)", "", line)
+        line = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", line)
+        line = re.sub(r"__(.+?)__", r"<b>\1</b>", line)
+        line = re.sub(r"(?<![*])\*(?![*])(.+?)(?<![*])\*(?![*])", r"<i>\1</i>", line)
+        line = re.sub(r"_(.+?)_", r"<i>\1</i>", line)
+        line = re.sub(r"`([^`]+)`", r"<code>\1</code>", line)
+        line = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', line)
+        return line
+
+    for raw in lines:
+        line = raw.rstrip()
+
+        if line.startswith("```"):
+            if in_code_block:
+                html_parts.append(
+                    "<pre><code>"
+                    + _escape_html("\n".join(code_buf))
+                    + "</code></pre>"
+                )
+                code_buf.clear()
+                in_code_block = False
+            else:
+                _close_list()
+                in_code_block = True
+            continue
+
+        if in_code_block:
+            code_buf.append(line)
+            continue
+
+        if not line:
+            _close_list()
+            html_parts.append("<br>")
+            continue
+
+        h_match = re.match(r"^(#{1,6})\s+(.+)$", line)
+        if h_match:
+            _close_list()
+            level = len(h_match.group(1))
+            html_parts.append(f"<h{level}>{_inline(h_match.group(2))}</h{level}>")
+            continue
+
+        li_match = re.match(r"^[-*+]\s+(.+)$", line)
+        if li_match:
+            if not in_list:
+                html_parts.append("<ul>")
+                in_list = True
+            html_parts.append(f"<li>{_inline(li_match.group(1))}</li>")
+            continue
+
+        ol_match = re.match(r"^\d+\.\s+(.+)$", line)
+        if ol_match:
+            if not in_list:
+                html_parts.append("<ol>")
+                in_list = True
+            html_parts.append(f"<li>{_inline(ol_match.group(1))}</li>")
+            continue
+
+        _close_list()
+        html_parts.append(f"<p>{_inline(line)}</p>")
+
+    _close_list()
+    if in_code_block and code_buf:
+        html_parts.append(
+            "<pre><code>" + _escape_html("\n".join(code_buf)) + "</code></pre>"
+        )
+
+    body = "\n".join(html_parts)
+    return (
+        "<html><body style='"
+        "font-family:Segoe UI,sans-serif;font-size:9pt;"
+        "color:WindowText;background-color:Window;"
+        "padding:4px;margin:0;"
+        "'>"
+        "<style>"
+        "pre{white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;}"
+        "code{white-space:pre-wrap;word-wrap:break-word;}"
+        "p,li{word-wrap:break-word;overflow-wrap:break-word;}"
+        "</style>"
+        f"{body}"
+        "</body></html>"
+    )
+
+
+def _escape_html(text: str) -> str:
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
 def _acquire_ui() -> None:
     global _resource_override
     if _resource_override is None:
@@ -239,65 +361,183 @@ def _shell_open(url: str) -> None:
         raise RuntimeError(f"ShellExecute не удалось (код {rc})")
 
 
+# ─── Персистентные настройки (отложенные версии) ─────────────────────
+
+
+def _load_settings() -> dict:
+    try:
+        with open(_SETTINGS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_settings(data: dict) -> None:
+    try:
+        _SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(_SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f"[IGI Tools] Настройки сохранены: {_SETTINGS_FILE}")
+    except Exception as exc:
+        print(f"[IGI Tools] Не удалось сохранить настройки {_SETTINGS_FILE}: {exc}")
+
+
+def _postpone_version(version: str) -> None:
+    """Запомнить версию, на которую больше не показывать запрос."""
+    data = _load_settings()
+    data["postponed_version"] = version
+    _save_settings(data)
+    print(f"[IGI Tools] Версия {version} отложена до следующего обновления.")
+
+
+def _is_version_postponed(version: str) -> bool:
+    """Показывать запрос на эту версию?"""
+    data = _load_settings()
+    saved = data.get("postponed_version", "")
+    return bool(saved) and not is_newer(version, saved)
+
+
+# ─── UI диалог обновления ───────────────────────────────────────────
+
+
+class _UpdateDialog(wx.Dialog):
+    """Кастомный диалог с тремя кнопками: Скачать / Отложить / Позже."""
+
+    POSTPONE = wx.NewIdRef()
+
+    def __init__(self, info: ReleaseInfo, parent=None):
+        wx.Dialog.__init__(
+            self,
+            parent,
+            title="IGI Tools — обновление",
+            style=(
+                wx.DEFAULT_DIALOG_STYLE
+                | wx.RESIZE_BORDER
+                | wx.MAXIMIZE_BOX
+                | wx.STAY_ON_TOP
+            ),
+        )
+        self.SetMinSize(wx.Size(460, 360))
+        self.SetSize(wx.Size(580, 520))
+
+        self._base_html = _markdown_to_html(info.notes)
+        self._html: wx.html.HtmlWindow | None = None
+
+        local = get_installed_version()
+        size_txt = _format_size(info.size)
+
+        panel = wx.Panel(self)
+        vsizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Заголовок
+        title = wx.StaticText(
+            panel, label="Доступна новая версия IGI Tools"
+        )
+        title.SetFont(
+            wx.Font(
+                11, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD
+            )
+        )
+        vsizer.Add(title, flag=wx.BOTTOM, border=12)
+
+        # Информация о версиях
+        info_text = wx.StaticText(
+            panel,
+            label=(
+                f"Установлена: {local}\n"
+                f"Актуальная:  {info.version}\n"
+                f"Размер:      {size_txt}"
+            ),
+        )
+        vsizer.Add(info_text, flag=wx.BOTTOM, border=8)
+
+        # Что нового — HtmlWindow
+        if self._base_html:
+            vsizer.Add(
+                wx.StaticText(panel, label="Что нового:"),
+                flag=wx.BOTTOM, border=4,
+            )
+            self._html = wx.html.HtmlWindow(
+                panel,
+                style=wx.html.HW_SCROLLBAR_AUTO,
+            )
+            self._html.SetBorders(2)
+            self._html.SetHTMLBackgroundColour(
+                wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW)
+            )
+            self._html.SetPage(self._base_html)
+            vsizer.Add(
+                self._html, proportion=1, flag=wx.EXPAND | wx.BOTTOM, border=12
+            )
+        else:
+            vsizer.AddStretchSpacer(1)
+
+        # Кнопки
+        btn_row = wx.BoxSizer(wx.HORIZONTAL)
+        download_btn = wx.Button(panel, wx.ID_OK, label="Скачать")
+        postpone_btn = wx.Button(panel, self.POSTPONE, label="Отложить до следующего обновления")
+        postpone_btn.Bind(wx.EVT_BUTTON, lambda evt: self.EndModal(self.POSTPONE))
+        later_btn = wx.Button(panel, wx.ID_CANCEL, label="Напомнить позже")
+
+        btn_row.Add(download_btn, flag=wx.RIGHT, border=8)
+        btn_row.Add(postpone_btn, flag=wx.RIGHT, border=8)
+        btn_row.Add(later_btn)
+
+        vsizer.Add(btn_row, flag=wx.ALIGN_CENTER)
+
+        panel.SetSizerAndFit(vsizer)
+        self.Layout()
+
+
 def _offer_update_ui(info: ReleaseInfo) -> None:
     global _declined_this_session
-    import wx
 
     _acquire_ui()
     try:
-        local = get_installed_version()
-        size_txt = _format_size(info.size)
-        notes = _format_release_notes(info.notes)
-        message = (
-            f"Доступна новая версия IGI Tools.\n\n"
-            f"Установлена: {local}\n"
-            f"Актуальная:  {info.version}\n"
-            f"Размер:      {size_txt}"
-        )
-        if notes:
-            message += f"\n\nЧто нового:\n{notes}"
-        message += (
-            "\n\nОткрыть скачивание установщика в браузере?"
-        )
+        dlg = _UpdateDialog(info)
+        answer = dlg.ShowModal()
 
-        answer = wx.MessageBox(
-            message,
-            "IGI Tools — обновление",
-            wx.YES_NO | wx.ICON_INFORMATION,
-        )
-        if answer != wx.YES:
+        if answer == wx.ID_OK:
+            # Скачать
+            dlg.Destroy()
+            try:
+                _shell_open(info.download_url)
+            except Exception as exc:
+                try:
+                    _shell_open(RELEASES_PAGE)
+                except Exception:
+                    wx.MessageBox(
+                        f"Не удалось открыть ссылку на установщик.\n\n"
+                        f"{exc}\n\n"
+                        f"Скачайте вручную:\n{info.download_url}",
+                        "IGI Tools — ошибка",
+                        wx.OK | wx.ICON_ERROR,
+                    )
+                    print(f"[IGI Tools] Не удалось открыть загрузку: {exc}")
+                    return
+
+            wx.MessageBox(
+                f"Скачивание «{info.asset_name}» запущено в браузере.\n\n"
+                "Перед установкой закройте AutoCAD / Civil 3D, "
+                "затем запустите скачанный установщик от имени администратора.\n\n"
+                f"Если загрузка не началась:\n{RELEASES_PAGE}",
+                "IGI Tools — обновление",
+                wx.OK | wx.ICON_INFORMATION,
+            )
+            print(
+                f"[IGI Tools] Открыта загрузка {info.version}: {info.download_url}"
+            )
+        elif answer == _UpdateDialog.POSTPONE:
+            # Отложить до следующего обновления — запомнить версию
+            _postpone_version(info.version)
+            dlg.Destroy()
+            return
+        else:
+            # Напомнить позже (в этом сеансе)
+            dlg.Destroy()
             _declined_this_session = True
             print(f"[IGI Tools] Обновление до {info.version} отложено.")
             return
-
-        try:
-            _shell_open(info.download_url)
-        except Exception as exc:
-            # Запасной путь — страница релизов
-            try:
-                _shell_open(RELEASES_PAGE)
-            except Exception:
-                wx.MessageBox(
-                    f"Не удалось открыть ссылку на установщик.\n\n"
-                    f"{exc}\n\n"
-                    f"Скачайте вручную:\n{info.download_url}",
-                    "IGI Tools — ошибка",
-                    wx.OK | wx.ICON_ERROR,
-                )
-                print(f"[IGI Tools] Не удалось открыть загрузку: {exc}")
-                return
-
-        wx.MessageBox(
-            f"Скачивание «{info.asset_name}» запущено в браузере.\n\n"
-            "Перед установкой закройте AutoCAD / Civil 3D, "
-            "затем запустите скачанный установщик от имени администратора.\n\n"
-            f"Если загрузка не началась:\n{RELEASES_PAGE}",
-            "IGI Tools — обновление",
-            wx.OK | wx.ICON_INFORMATION,
-        )
-        print(
-            f"[IGI Tools] Открыта загрузка {info.version}: {info.download_url}"
-        )
     finally:
         _release_ui()
 
@@ -395,6 +635,13 @@ def schedule_update_check() -> None:
     _check_started = True
 
     def start_worker() -> None:
+        info = check_for_update()
+        if info is not None and _is_version_postponed(info.version):
+            print(
+                f"[IGI Tools] Версия {info.version} отложена пользователем "
+                "— автопроверка пропущена."
+            )
+            return
         _run_update_check(silent_if_current=True)
 
     try:
