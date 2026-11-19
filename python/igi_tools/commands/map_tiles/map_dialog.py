@@ -260,6 +260,30 @@ function geodesicArea(latlngs) {
     return Math.abs(area * R * R / 2 * Math.PI / 180);
 }
 
+// ---- Tile count estimate ----
+function estimateTileInfo() {
+    if (!cornerPoints) return null;
+    var n = 1 << tileZoom;
+    var minLon = cornerPoints.nw.lng;
+    var maxLon = cornerPoints.ne.lng;
+    var maxLat = cornerPoints.nw.lat;
+    var minLat = cornerPoints.se.lat;
+    // Slippy Map tile X from lon
+    var xMin = Math.floor((minLon + 180) / 360 * n);
+    var xMax = Math.floor((maxLon + 180) / 360 * n);
+    // Slippy Map tile Y from lat (Web Mercator)
+    function latToTileY(lat) {
+        return Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
+    }
+    var yMin = latToTileY(maxLat);
+    var yMax = latToTileY(minLat);
+    var cols = Math.max(0, xMax - xMin + 1);
+    var rows = Math.max(0, yMax - yMin + 1);
+    var count = cols * rows;
+    var sizeMB = (count * 0.07).toFixed(1);  // ~70 KB per JPEG tile
+    return { count: count, sizeMB: sizeMB };
+}
+
 // ---- Map init ----
 map = L.map('map', {
     center: [53.9, 27.57],
@@ -279,6 +303,7 @@ document.getElementById('zoomValue').textContent = tileZoom;
 map.on('zoomend', function() {
     tileZoom = map.getZoom();
     document.getElementById('zoomValue').textContent = tileZoom;
+    updateStatus();
 });
 
 // ---- Drawing ----
@@ -517,8 +542,10 @@ function onRectDragEndGlobal(e) {
 // ---- Clear ----
 function onClear() {
     disableMoveMode();
-    if (rectangle && drawLayer.hasLayer(rectangle)) {
-        drawLayer.removeLayer(rectangle);
+    if (rectangle) {
+        if (drawLayer.hasLayer(rectangle)) {
+            drawLayer.removeLayer(rectangle);
+        }
     }
     rectangle = null;
     clearCornerMarkers();
@@ -537,7 +564,7 @@ function onClear() {
     setStatus('Очищено');
 }
 
-// ---- Area and status ----
+// ---- Area ----
 function getTotalArea() {
     if (!rectangle) return 0;
     var latlngs = [
@@ -565,9 +592,11 @@ function getRectCoords() {
 }
 
 function updateStatus() {
-    var area = getTotalArea();
-    var areaHa = (area / 10000).toFixed(2);
-    var text = area > 0 ? ('S = ' + areaHa + ' \u0433\u0430') : '';
+    var info = estimateTileInfo();
+    var text = '';
+    if (info && info.count > 0) {
+        text = info.count + ' \u0442\u0430\u0439\u043b\u043e\u0432, ~' + info.sizeMB + ' \u041c\u0411';
+    }
     setStatus(text);
 }
 
