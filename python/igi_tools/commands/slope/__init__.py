@@ -526,7 +526,7 @@ def slope_edit() -> None:
 
         db = Db.curDb()
 
-        # ── Select stroke ──
+# ── Select stroke ──
         res, oid, _ = Ed.Editor.entSel("\nВыберите штрих откоса для редактирования: ")
         if res != Ed.PromptStatus.eOk:
             return
@@ -538,9 +538,9 @@ def slope_edit() -> None:
             print("\n[IGI Tools] Объект не принадлежит группе откоса.")
             return
         role = _xdata_get_str(xd, 2)
-        if role not in (ROLE_TOP, ROLE_BOTTOM, ROLE_STROKE):
+        if role != ROLE_STROKE:
             ent.close()
-            print("\n[IGI Tools] Неопознанная роль.")
+            print("\n[IGI Tools] Выберите штрих откоса, а не контур.")
             return
         group_guid = _xdata_get_str(xd, 3)
         ent.close()
@@ -631,13 +631,14 @@ def slope_edit() -> None:
                 if idx is None:
                     line.close()
                     continue
-                top_pt = line_curve.startPoint()
-                bot_pt = line_curve.endPoint()
+                top_pt = line_curve.getStartPoint()
+                bot_pt = line_curve.getEndPoint()
                 try:
-                    bot_dist = bot_curve.getDistAtPoint(bot_pt)
+                    closest = bot_curve.getClosestPointTo(bot_pt, False)
+                    bot_dist = bot_curve.getDistAtPoint(closest)
                 except Exception:
                     bot_dist = 0.0
-                stroke_infos.append((idx, s_oid, top_pt, bot_dist))
+                stroke_infos.append((idx, s_oid, top_pt, bot_dist, bot_pt))
                 line.close()
             except Exception:
                 pass
@@ -647,6 +648,7 @@ def slope_edit() -> None:
         total_strokes = len(stroke_infos)
         top_pts = [s[2] for s in stroke_infos]
         orig_bot_dists = [s[3] for s in stroke_infos]
+        orig_end_pts = [s[4] for s in stroke_infos]
 
         # Step from XData (stored in num_strokes slot) – estimate from existing strokes
         step = bot_len / max(total_strokes - 1, 1) if total_strokes > 1 else 1.0
@@ -667,15 +669,23 @@ def slope_edit() -> None:
 
         # ── Jig ──
         from igi_tools.commands.slope.jig import SlopeEditJig
-        jig = SlopeEditJig(
-            top_curve, bot_curve,
-            top_pts, orig_bot_dists,
-            sel_array_idx, bot_len, total_strokes,
-            step, bottom_offset, short_count,
-            use_mid_length, mid_ratio, mid_length,
-            plane_normal,
-        )
-        drag_status = jig.drag()
+        from igi_tools.commands.slope.ui import _RadiusSlider
+        radius_dlg = _RadiusSlider()
+        radius_dlg.Show()
+        try:
+            jig = SlopeEditJig(
+                top_curve, bot_curve,
+                top_pts, orig_bot_dists,
+                sel_array_idx, bot_len, total_strokes,
+                step, bottom_offset, short_count,
+                use_mid_length, mid_ratio, mid_length,
+                plane_normal,
+                radius_dlg=radius_dlg,
+                orig_end_pts=orig_end_pts,
+            )
+            drag_status = jig.drag()
+        finally:
+            radius_dlg.Destroy()
 
         # Close curves
         top_curve.close()

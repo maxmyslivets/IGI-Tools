@@ -224,3 +224,31 @@ def _show_dialog(
     finally:
         dlg.Destroy()
         del res_override
+
+
+class _RadiusSlider(wx.Dialog):
+    """Modeless dialog to adjust capture radius during Jig."""
+
+    def __init__(self):
+        style = wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP
+        wx.Dialog.__init__(self, None, title="Радиус захвата", style=style)
+        self.SetMinSize(wx.Size(200, 80))
+
+        panel = wx.Panel(self)
+        hsizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        hsizer.Add(
+            wx.StaticText(panel, label="Соседей:"),
+            flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=8,
+        )
+        self.spin = wx.SpinCtrl(panel, value="3", min=0, max=50, size=(80, -1))
+        hsizer.Add(self.spin, flag=wx.ALIGN_CENTER_VERTICAL)
+
+        panel.SetSizer(hsizer)
+        hsizer.Fit(panel)
+        self.Fit()
+        self.SetPosition(wx.Point(20, 80))
+
+    @property
+    def radius(self) -> int:
+        return self.spin.GetValue()

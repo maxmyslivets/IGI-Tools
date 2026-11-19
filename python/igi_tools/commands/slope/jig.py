@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import math
+from typing import Any
 
+import wx
 from pyrx import Db, Ed, Ge, Gi
 
 
@@ -32,12 +34,15 @@ class SlopeEditJig(Ed.DrawJig):
         mid_ratio: float,
         mid_length: float,
         plane_normal: Ge.Vector3d,
+        radius_dlg: Any = None,
+        orig_end_pts: list[Ge.Point3d] | None = None,
     ) -> None:
         super().__init__()
         self._top_curve = top_curve
         self._bot_curve = bot_curve
         self._stroke_top_pts = stroke_top_pts
         self._orig_bottom_dists = orig_bottom_dists
+        self._orig_end_pts = orig_end_pts or list(stroke_top_pts)
         self._sel_idx = sel_idx
         self._bot_length = bot_length
         self._total_strokes = total_strokes
@@ -48,6 +53,7 @@ class SlopeEditJig(Ed.DrawJig):
         self._mid_ratio = mid_ratio
         self._mid_length = mid_length
         self._plane_normal = plane_normal
+        self._radius_dlg = radius_dlg
 
         # Editable state
         self._cursor_pt: Ge.Point3d | None = None
@@ -64,7 +70,7 @@ class SlopeEditJig(Ed.DrawJig):
         self._base_pt = base
 
         self.setDispPrompt(
-            f"Откос: двигайте низ штриха | +R -R (радиус: {self._capture_radius})"
+            f"Откос: двигайте низ штриха | слайдер — радиус"
         )
         self.setKeywordList("+R -R")
 
@@ -72,9 +78,14 @@ class SlopeEditJig(Ed.DrawJig):
 
     def sampler(self) -> Ed.DragStatus:
         """Acquire cursor point or keyword."""
+        # Process wx events so modeless dialog updates reach us
+        if self._radius_dlg is not None:
+            wx.Yield()
+
         status, pt = self.acquirePoint(self._base_pt)
 
         if status == Ed.DragStatus.kKW1:  # +R
+            self._cursor_pt = pt
             self._capture_radius = min(self._capture_radius + 1, self._total_strokes // 2)
             self.setDispPrompt(
                 f"Откос: двигайте низ штриха | +R -R (радиус: {self._capture_radius})"
@@ -82,6 +93,7 @@ class SlopeEditJig(Ed.DrawJig):
             return Ed.DragStatus.kNormal  # trigger update/redraw
 
         if status == Ed.DragStatus.kKW2:  # -R
+            self._cursor_pt = pt
             self._capture_radius = max(self._capture_radius - 1, 0)
             self.setDispPrompt(
                 f"Откос: двигайте низ штриха | +R -R (радиус: {self._capture_radius})"
@@ -96,6 +108,10 @@ class SlopeEditJig(Ed.DrawJig):
 
     def update(self) -> bool:
         """Compute new bottom end positions for all strokes."""
+        # Read radius from modeless dialog if present
+        if self._radius_dlg is not None and self._radius_dlg.IsShown():
+            self._capture_radius = self._radius_dlg.radius
+
         if self._cursor_pt is None:
             return False
 
@@ -123,7 +139,10 @@ class SlopeEditJig(Ed.DrawJig):
                 falloff = 1.0 - dist_i / (self._capture_radius + 1.0)
                 new_d = orig_d + delta * falloff
             else:
-                new_d = orig_d
+                # Unaffected — keep original end point exactly as-is
+                new_end_pts.append(self._orig_end_pts[i])
+                new_bottom_dists.append(orig_d)
+                continue
 
             new_bottom_dists.append(new_d)
 
@@ -148,7 +167,7 @@ class SlopeEditJig(Ed.DrawJig):
         """Draw preview strokes."""
         traits = wd.subEntityTraits()
         geo = wd.geometry()
-        normal = Ge.Vector3d.kZAxis  # or self._plane_normal
+        normal = self._plane_normal
 
         for i in range(self._total_strokes):
             top_pt = self._stroke_top_pts[i]
