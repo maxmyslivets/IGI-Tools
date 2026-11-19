@@ -417,8 +417,7 @@ class _UpdateDialog(wx.Dialog):
                 | wx.STAY_ON_TOP
             ),
         )
-        self.SetMinSize(wx.Size(460, 360))
-        self.SetSize(wx.Size(580, 520))
+        self.SetMinSize(wx.Size(520, 420))
 
         self._base_html = _markdown_to_html(info.notes)
         self._html: wx.html.HtmlWindow | None = None
@@ -486,7 +485,11 @@ class _UpdateDialog(wx.Dialog):
         vsizer.Add(btn_row, flag=wx.ALIGN_CENTER)
 
         panel.SetSizerAndFit(vsizer)
-        self.Layout()
+
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(panel, proportion=1, flag=wx.EXPAND | wx.ALL, border=12)
+        self.SetSizerAndFit(outer)
+        self.SetSize(wx.Size(640, 560))
 
 
 def _offer_update_ui(info: ReleaseInfo) -> None:
