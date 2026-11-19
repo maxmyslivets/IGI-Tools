@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import math
 from typing import Any
 
 import wx
 from pyrx import Db, Ed, Ge, Gi
+
+from igi_tools.commands.slope.geometry import _compute_stroke_end
 
 
 class SlopeEditJig(Ed.DrawJig):
@@ -14,7 +15,9 @@ class SlopeEditJig(Ed.DrawJig):
 
     Behaviour:
       - Dragged bottom endpoint moves along the bottom curve.
-      - Neighbouring strokes within capture_radius move with falloff.
+      - Neighbouring strokes within capture_radius move via
+        **linear interpolation** between range bounds, guaranteeing
+        monotonic ordering (no crossings).
       - Keywords: +R / -R to adjust capture_radius.
     """
 
@@ -107,7 +110,11 @@ class SlopeEditJig(Ed.DrawJig):
         return status
 
     def update(self) -> bool:
-        """Compute new bottom end positions for all strokes."""
+        """Compute new bottom end positions.
+
+        Uses linear interpolation between range bounds (not falloff)
+        to guarantee monotonic ordering of bottom distances.
+        """
         # Read radius from modeless dialog if present
         if self._radius_dlg is not None and self._radius_dlg.IsShown():
             self._capture_radius = self._radius_dlg.radius
@@ -122,41 +129,51 @@ class SlopeEditJig(Ed.DrawJig):
         except Exception:
             return False
 
-        sel_orig = self._orig_bottom_dists[self._sel_idx]
-        delta = cursor_dist - sel_orig
+        # Range: inclusive bounds of affected strokes
+        left_idx = max(0, self._sel_idx - self._capture_radius)
+        right_idx = min(self._total_strokes - 1, self._sel_idx + self._capture_radius)
+
+        # Clamp cursor_dist to stay within original range — prevents extrapolation
+        lo = min(self._orig_bottom_dists[left_idx], self._orig_bottom_dists[right_idx])
+        hi = max(self._orig_bottom_dists[left_idx], self._orig_bottom_dists[right_idx])
+        cursor_dist = max(lo, min(cursor_dist, hi))
 
         new_end_pts: list[Ge.Point3d] = []
         new_bottom_dists: list[float] = []
 
         for i in range(self._total_strokes):
-            top_pt = self._stroke_top_pts[i]
             orig_d = self._orig_bottom_dists[i]
-            dist_i = abs(i - self._sel_idx)
 
-            if dist_i == 0:
-                new_d = cursor_dist
-            elif dist_i <= self._capture_radius:
-                falloff = 1.0 - dist_i / (self._capture_radius + 1.0)
-                new_d = orig_d + delta * falloff
-            else:
+            if i < left_idx or i > right_idx:
                 # Unaffected — keep original end point exactly as-is
                 new_end_pts.append(self._orig_end_pts[i])
                 new_bottom_dists.append(orig_d)
                 continue
 
+            if i == self._sel_idx:
+                new_d = cursor_dist
+            elif i < self._sel_idx:
+                # Interpolate between orig_d[left_idx] and cursor_dist
+                frac = (i - left_idx) / (self._sel_idx - left_idx)
+                new_d = self._orig_bottom_dists[left_idx] + (cursor_dist - self._orig_bottom_dists[left_idx]) * frac
+            else:
+                # Interpolate between cursor_dist and orig_d[right_idx]
+                frac = (i - self._sel_idx) / (right_idx - self._sel_idx)
+                new_d = cursor_dist + (self._orig_bottom_dists[right_idx] - cursor_dist) * frac
+
             new_bottom_dists.append(new_d)
 
-            # Clamp to valid range
+            # Clamp to valid curve range
             new_d = max(0.0, min(new_d, self._bot_length - 1e-10))
 
             try:
                 bp = self._bot_curve.getPointAtDist(new_d)
             except Exception:
-                bp = top_pt  # fallback
+                bp = self._stroke_top_pts[i]  # fallback
 
             # Compute stroke end (with bottom offset, short stroke, etc.)
             is_short = self._is_short_stroke(i)
-            end_pt = self._compute_stroke_end(top_pt, bp, is_short)
+            end_pt = self._compute_stroke_end(self._stroke_top_pts[i], bp, is_short)
             new_end_pts.append(end_pt)
 
         self._new_end_pts = new_end_pts
@@ -214,67 +231,12 @@ class SlopeEditJig(Ed.DrawJig):
         bottom_pt: Ge.Point3d,
         is_short: bool,
     ) -> Ge.Point3d:
-        """Compute actual end point of a stroke (with bottom_offset, short stroke)."""
-        return _calc_stroke_end(
+        """Compute actual end point of a stroke (delegates to geometry._compute_stroke_end)."""
+        return _compute_stroke_end(
             top_pt, bottom_pt, is_short,
             self._bottom_offset, self._mid_ratio,
             self._use_mid_length, self._mid_length,
         )
 
 
-def _calc_stroke_end(
-    top_pt: Ge.Point3d,
-    bottom_pt: Ge.Point3d,
-    is_short: bool,
-    bottom_offset: float,
-    mid_ratio: float,
-    use_mid_length: bool,
-    mid_length: float,
-) -> Ge.Point3d:
-    """Pure-function version of compute_stroke_end (no Db dependency)."""
-    # Flat distance
-    dx = bottom_pt.x - top_pt.x
-    dy = bottom_pt.y - top_pt.y
-    L = math.sqrt(dx * dx + dy * dy)
 
-    if L < 1e-12:
-        return bottom_pt
-
-    # Z-interpolation factor
-    t = 1.0  # default: go all the way to bottom
-
-    if use_mid_length:
-        if is_short:
-            if L <= mid_length:
-                t = 1.0
-            else:
-                t = (L - mid_length) / L
-        else:
-            if L <= bottom_offset:
-                t = 1.0
-            else:
-                t = (L - bottom_offset) / L
-    else:
-        if L <= bottom_offset:
-            if not is_short:
-                t = 1.0
-            else:
-                t = (1.0 - mid_ratio)
-        else:
-            if not is_short:
-                t = (L - bottom_offset) / L
-            else:
-                remaining = L - bottom_offset
-                if remaining < 1e-12:
-                    t = 1.0
-                else:
-                    short_part = remaining * (1.0 - mid_ratio)
-                    t = (bottom_offset + short_part) / L
-
-    t = max(0.0, min(1.0, t))
-
-    end_x = top_pt.x + dx * t
-    end_y = top_pt.y + dy * t
-    end_z = top_pt.z + (bottom_pt.z - top_pt.z) * t
-
-    return Ge.Point3d(end_x, end_y, end_z)
