@@ -19,6 +19,55 @@ def _distance_in_plane(a: Ge.Point3d, b: Ge.Point3d) -> float:
     return math.hypot(dx, dy)
 
 
+def _extend_to_curve(
+    from_pt: Ge.Point3d,
+    dir_pt: Ge.Point3d,
+    curve: Db.Curve,
+) -> Ge.Point3d | None:
+    """Продлевает отрезок from_pt→dir_pt до пересечения с curve.
+
+    Строит отрезок от top_pt в обе стороны (на длину curve) и ищет
+    пересечения с curve. Выбирает пересечение, лежащее в направлении
+    from_pt→dir_pt (по скалярному произведению), ближайшее к dir_pt.
+    Если не найдено — проекция dir_pt на кривую (запасной вариант).
+    """
+    dir_vec = Ge.Vector3d(dir_pt - from_pt)
+    if dir_vec.length() < 1e-12:
+        return curve.getClosestPointTo(dir_pt, False)
+    dir_vec.normalize()
+
+    total_len = _get_curve_length(curve)
+    span = max(total_len, 1e6)
+
+    # Строим отрезок через обе точки, далеко в обе стороны
+    a_pt = from_pt - dir_vec * span
+    b_pt = dir_pt + dir_vec * span
+    line = Db.Line(a_pt, b_pt)
+    try:
+        coll = Ge.Point3dCollection()
+        curve.intersectWith(line, Db.Intersect.kOnBothOperands, coll)
+        if coll:
+            best, best_d = None, float("inf")
+            for p in coll:
+                # Вектор от from_pt к точке пересечения
+                to_p = Ge.Vector3d(p - from_pt)
+                # Скалярное произведение с dir_vec — положительное = в направлении штриха
+                dot = to_p.dotProduct(dir_vec)
+                if dot < 1e-8:
+                    # Точка позади top_pt — не наш случай
+                    continue
+                d = _distance_in_plane(dir_pt, p)
+                if d < best_d:
+                    best_d = d
+                    best = p
+            return best if best is not None else curve.getClosestPointTo(dir_pt, False)
+        return curve.getClosestPointTo(dir_pt, False)
+    except Exception:
+        return curve.getClosestPointTo(dir_pt, False)
+    finally:
+        line.close()
+
+
 def _get_offset_point(p0: Ge.Point3d, p1: Ge.Point3d, dist: float) -> Ge.Point3d:
     """Point on segment p0→p1, *behind* p1 by `dist` (along flat XY), with linear Z.
 

@@ -26,6 +26,7 @@ from igi_tools.commands.slope.config import (
 from igi_tools.commands.slope.geometry import (
     _check_min_strokes,
     _compute_stroke_end,
+
     _find_best_phase_shift,
     _get_clockwise_order,
     _get_curve_length,
