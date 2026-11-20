@@ -226,6 +226,55 @@ def _show_dialog(
         del res_override
 
 
+class _SlopeEditSlider(wx.Dialog):
+    """Modeless dialog with two sliders: left and right falloff power."""
+
+    def __init__(self):
+        style = wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP
+        wx.Dialog.__init__(self, None, title="Затухание откоса", style=style)
+        self.SetMinSize(wx.Size(260, 160))
+
+        panel = wx.Panel(self)
+        vsizer = wx.BoxSizer(wx.VERTICAL)
+
+        # ── Левая сторона ──
+        vsizer.Add(wx.StaticText(panel, label="Левая сторона (степень):"),
+                   flag=wx.BOTTOM, border=2)
+        self.slider_left = wx.Slider(panel, value=5, minValue=0,
+                                     maxValue=20, size=(200, -1),
+                                     style=wx.SL_HORIZONTAL | wx.SL_LABELS)
+        vsizer.Add(self.slider_left, flag=wx.EXPAND | wx.BOTTOM, border=8)
+
+        # ── Правая сторона ──
+        vsizer.Add(wx.StaticText(panel, label="Правая сторона (степень):"),
+                   flag=wx.BOTTOM, border=2)
+        self.slider_right = wx.Slider(panel, value=5, minValue=0,
+                                      maxValue=20, size=(200, -1),
+                                      style=wx.SL_HORIZONTAL | wx.SL_LABELS)
+        vsizer.Add(self.slider_right, flag=wx.EXPAND | wx.BOTTOM, border=12)
+
+        # ── Пояснение ──
+        info = wx.StaticText(panel, label="0 = все штрихи одинаково\n"
+                                         "5 = умеренное затухание\n"
+                                         "20 = резкое затухание")
+        info.SetForegroundColour(wx.Colour(100, 100, 100))
+        vsizer.Add(info, flag=wx.ALIGN_CENTER)
+
+        outer = wx.BoxSizer(wx.VERTICAL)
+        outer.Add(vsizer, proportion=1, flag=wx.EXPAND | wx.ALL, border=10)
+        panel.SetSizer(outer)
+        self.Fit()
+        self.SetPosition(wx.Point(20, 80))
+
+    @property
+    def power_left(self) -> float:
+        return float(self.slider_left.GetValue())
+
+    @property
+    def power_right(self) -> float:
+        return float(self.slider_right.GetValue())
+
+
 class _RadiusSlider(wx.Dialog):
     """Modeless dialog to adjust capture radius during Jig."""
 

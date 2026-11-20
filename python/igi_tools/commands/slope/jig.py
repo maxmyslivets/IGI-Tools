@@ -32,6 +32,7 @@ class SlopeEditJig(Ed.DrawJig):
         mid_ratio: float,
         mid_length: float,
         plane_normal: Ge.Vector3d,
+        slider_dlg: object | None = None,
     ) -> None:
         super().__init__()
         self._top_curve = top_curve
@@ -48,6 +49,7 @@ class SlopeEditJig(Ed.DrawJig):
         self._mid_ratio = mid_ratio
         self._mid_length = mid_length
         self._plane_normal = plane_normal
+        self._slider_dlg = slider_dlg
 
         # Editable state
         self._cursor_pt: Ge.Point3d | None = None
@@ -65,6 +67,24 @@ class SlopeEditJig(Ed.DrawJig):
         self.setDispPrompt(
             "Откос: двигайте низ штриха"
         )
+
+    def _get_power_left(self) -> float:
+        """Get current power for strokes left of selection."""
+        if self._slider_dlg is not None:
+            try:
+                return float(self._slider_dlg.power_left)
+            except Exception:
+                pass
+        return 5.0
+
+    def _get_power_right(self) -> float:
+        """Get current power for strokes right of selection."""
+        if self._slider_dlg is not None:
+            try:
+                return float(self._slider_dlg.power_right)
+            except Exception:
+                pass
+        return 5.0
 
     # ── Jig overrides ──
 
@@ -110,6 +130,8 @@ class SlopeEditJig(Ed.DrawJig):
         delta = cursor_dist - sel_orig
 
         total = self._total_strokes
+        power_left = self._get_power_left()
+        power_right = self._get_power_right()
 
         new_end_pts: list[Ge.Point3d] = []
         new_bottom_dists: list[float] = []
@@ -122,8 +144,10 @@ class SlopeEditJig(Ed.DrawJig):
             else:
                 # t = fractional position of this stroke relative to total
                 t = abs(i - self._sel_idx) / total
-                # (1 - t)⁵: hits ~0.77 at t=0.05, ~0.17 at t=0.3
-                fade = (1.0 - t) ** 5
+                if i < self._sel_idx:
+                    fade = (1.0 - t) ** power_left
+                else:
+                    fade = (1.0 - t) ** power_right
                 new_d = orig_d + delta * fade
 
             new_d = max(0.0, min(new_d, self._bot_length - 1e-10))

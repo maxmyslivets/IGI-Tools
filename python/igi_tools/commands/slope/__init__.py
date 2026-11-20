@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import traceback
 
-from pyrx import Db, Ge, Ed, command
+from pyrx import Ap, Db, Ge, Ed, command
 
 from igi_tools.commands.slope.config import (
     _DEFAULT_BOTTOM_OFFSET,
@@ -673,8 +673,16 @@ def slope_edit() -> None:
         # Project plane for 3D curve reads
         plane_normal = Ed.Editor.ucsNormalVector()
 
-        # ── Jig ──
+        # ── Modeless slider dialog ──
+        from igi_tools.commands.slope.ui import _SlopeEditSlider
         from igi_tools.commands.slope.jig import SlopeEditJig
+
+        import wx
+        res_override = Ap.ResourceOverride()
+        slider_dlg = _SlopeEditSlider()
+        slider_dlg.Show()
+        wx.Yield()
+
         jig = SlopeEditJig(
             top_curve, bot_curve,
             top_pts, orig_bot_dists,
@@ -682,10 +690,13 @@ def slope_edit() -> None:
             step, bottom_offset, short_count,
             use_mid_length, mid_ratio, mid_length,
             plane_normal,
+            slider_dlg=slider_dlg,
         )
         drag_status = jig.drag()
 
-        # Close curves
+        # Close curves + slider
+        slider_dlg.Destroy()
+        del res_override
         top_curve.close()
         bot_curve.close()
 
