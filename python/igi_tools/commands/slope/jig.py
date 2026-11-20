@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-import wx
 from pyrx import Db, Ed, Ge, Gi
 
 from igi_tools.commands.slope.geometry import _compute_stroke_end
@@ -15,10 +12,8 @@ class SlopeEditJig(Ed.DrawJig):
 
     Behaviour:
       - Dragged bottom endpoint moves along the bottom curve.
-      - Neighbouring strokes within capture_radius move via
-        **linear interpolation** between range bounds, guaranteeing
-        monotonic ordering (no crossings).
-      - Keywords: +R / -R to adjust capture_radius.
+      - All strokes are affected with non-linear falloff (power 3.0):
+        maximum change at selected stroke, fading accelerates with distance.
     """
 
     def __init__(
@@ -37,15 +32,12 @@ class SlopeEditJig(Ed.DrawJig):
         mid_ratio: float,
         mid_length: float,
         plane_normal: Ge.Vector3d,
-        radius_dlg: Any = None,
-        orig_end_pts: list[Ge.Point3d] | None = None,
     ) -> None:
         super().__init__()
         self._top_curve = top_curve
         self._bot_curve = bot_curve
         self._stroke_top_pts = stroke_top_pts
         self._orig_bottom_dists = orig_bottom_dists
-        self._orig_end_pts = orig_end_pts or list(stroke_top_pts)
         self._sel_idx = sel_idx
         self._bot_length = bot_length
         self._total_strokes = total_strokes
@@ -56,11 +48,9 @@ class SlopeEditJig(Ed.DrawJig):
         self._mid_ratio = mid_ratio
         self._mid_length = mid_length
         self._plane_normal = plane_normal
-        self._radius_dlg = radius_dlg
 
         # Editable state
         self._cursor_pt: Ge.Point3d | None = None
-        self._capture_radius: int = 3  # neighbours on each side (adjustable)
         self._new_end_pts: list[Ge.Point3d] = []  # set during update()
         self._new_bottom_dists: list[float] = list(orig_bottom_dists)  # updated during drag
         self._final_end_pts: list[Ge.Point3d] = list(stroke_top_pts)  # fallback copy
@@ -73,35 +63,14 @@ class SlopeEditJig(Ed.DrawJig):
         self._base_pt = base
 
         self.setDispPrompt(
-            f"Откос: двигайте низ штриха | слайдер — радиус"
+            "Откос: двигайте низ штриха"
         )
-        self.setKeywordList("+R -R")
 
     # ── Jig overrides ──
 
     def sampler(self) -> Ed.DragStatus:
-        """Acquire cursor point or keyword."""
-        # Process wx events so modeless dialog updates reach us
-        if self._radius_dlg is not None:
-            wx.Yield()
-
+        """Acquire cursor point."""
         status, pt = self.acquirePoint(self._base_pt)
-
-        if status == Ed.DragStatus.kKW1:  # +R
-            self._cursor_pt = pt
-            self._capture_radius = min(self._capture_radius + 1, self._total_strokes // 2)
-            self.setDispPrompt(
-                f"Откос: двигайте низ штриха | +R -R (радиус: {self._capture_radius})"
-            )
-            return Ed.DragStatus.kNormal  # trigger update/redraw
-
-        if status == Ed.DragStatus.kKW2:  # -R
-            self._cursor_pt = pt
-            self._capture_radius = max(self._capture_radius - 1, 0)
-            self.setDispPrompt(
-                f"Откос: двигайте низ штриха | +R -R (радиус: {self._capture_radius})"
-            )
-            return Ed.DragStatus.kNormal
 
         if status == Ed.DragStatus.kNormal:
             self._cursor_pt = pt
@@ -112,13 +81,14 @@ class SlopeEditJig(Ed.DrawJig):
     def update(self) -> bool:
         """Compute new bottom end positions.
 
-        Uses linear interpolation between range bounds (not falloff)
-        to guarantee monotonic ordering of bottom distances.
+        Falloff by positional percentage:
+          t = |i - sel_idx| / total_strokes   (0..1 fraction of total strokes)
+          fade = (1 - t)⁵
+        - Selected stroke (t=0): full displacement.
+        - Early neighbours (t ~0.05): ~0.77, visible falloff.
+        - Far strokes (t ~0.3): ~0.17, nearly stationary.
+        - Works identically for both 5 and 100 strokes.
         """
-        # Read radius from modeless dialog if present
-        if self._radius_dlg is not None and self._radius_dlg.IsShown():
-            self._capture_radius = self._radius_dlg.radius
-
         if self._cursor_pt is None:
             return False
 
@@ -129,49 +99,41 @@ class SlopeEditJig(Ed.DrawJig):
         except Exception:
             return False
 
-        # Range: inclusive bounds of affected strokes
-        left_idx = max(0, self._sel_idx - self._capture_radius)
-        right_idx = min(self._total_strokes - 1, self._sel_idx + self._capture_radius)
-
-        # Clamp cursor_dist to stay within original range — prevents extrapolation
-        lo = min(self._orig_bottom_dists[left_idx], self._orig_bottom_dists[right_idx])
-        hi = max(self._orig_bottom_dists[left_idx], self._orig_bottom_dists[right_idx])
+        # Clamp cursor_dist to original bottom range — keeps new_d monotonic
+        # (prevents strokes from crossing each other during editing)
+        lo = min(self._orig_bottom_dists)
+        hi = max(self._orig_bottom_dists)
         cursor_dist = max(lo, min(cursor_dist, hi))
+
+        # Displacement of the selected stroke (delta from original)
+        sel_orig = self._orig_bottom_dists[self._sel_idx]
+        delta = cursor_dist - sel_orig
+
+        total = self._total_strokes
 
         new_end_pts: list[Ge.Point3d] = []
         new_bottom_dists: list[float] = []
 
-        for i in range(self._total_strokes):
+        for i in range(total):
             orig_d = self._orig_bottom_dists[i]
-
-            if i < left_idx or i > right_idx:
-                # Unaffected — keep original end point exactly as-is
-                new_end_pts.append(self._orig_end_pts[i])
-                new_bottom_dists.append(orig_d)
-                continue
 
             if i == self._sel_idx:
                 new_d = cursor_dist
-            elif i < self._sel_idx:
-                # Interpolate between orig_d[left_idx] and cursor_dist
-                frac = (i - left_idx) / (self._sel_idx - left_idx)
-                new_d = self._orig_bottom_dists[left_idx] + (cursor_dist - self._orig_bottom_dists[left_idx]) * frac
             else:
-                # Interpolate between cursor_dist and orig_d[right_idx]
-                frac = (i - self._sel_idx) / (right_idx - self._sel_idx)
-                new_d = cursor_dist + (self._orig_bottom_dists[right_idx] - cursor_dist) * frac
+                # t = fractional position of this stroke relative to total
+                t = abs(i - self._sel_idx) / total
+                # (1 - t)⁵: hits ~0.77 at t=0.05, ~0.17 at t=0.3
+                fade = (1.0 - t) ** 5
+                new_d = orig_d + delta * fade
 
-            new_bottom_dists.append(new_d)
-
-            # Clamp to valid curve range
             new_d = max(0.0, min(new_d, self._bot_length - 1e-10))
+            new_bottom_dists.append(new_d)
 
             try:
                 bp = self._bot_curve.getPointAtDist(new_d)
             except Exception:
                 bp = self._stroke_top_pts[i]  # fallback
 
-            # Compute stroke end (with bottom offset, short stroke, etc.)
             is_short = self._is_short_stroke(i)
             end_pt = self._compute_stroke_end(self._stroke_top_pts[i], bp, is_short)
             new_end_pts.append(end_pt)
@@ -190,14 +152,10 @@ class SlopeEditJig(Ed.DrawJig):
             top_pt = self._stroke_top_pts[i]
             end_pt = self._new_end_pts[i] if i < len(self._new_end_pts) else top_pt
 
-            dist_i = abs(i - self._sel_idx)
-
-            if dist_i == 0:
+            if i == self._sel_idx:
                 traits.setColor(3)  # green – selected
-            elif dist_i <= self._capture_radius:
-                traits.setColor(2)  # yellow – captured neighbours
             else:
-                traits.setColor(8)  # gray – unaffected
+                traits.setColor(2)  # yellow – affected neighbours
 
             geo.polyline([top_pt, end_pt], normal)
 

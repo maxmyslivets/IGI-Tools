@@ -569,6 +569,7 @@ def slope_edit() -> None:
             print("\n[IGI Tools] Верхний контур без XData откоса.")
             return
 
+        total_original = _xdata_get_int(txd, 4)  # num_strokes from creation
         bottom_offset = _xdata_get_double(txd, 5) or _DEFAULT_BOTTOM_OFFSET
         short_count = _xdata_get_int(txd, 6) or _DEFAULT_SHORT_COUNT
         use_mid_length = bool(_xdata_get_int(txd, 8) or _DEFAULT_USE_MID_LENGTH)
@@ -614,8 +615,11 @@ def slope_edit() -> None:
             bot_curve.close()
             return
 
-        # Build (index, OID, top_pt, bottom_dist) for each stroke
-        stroke_infos: list[tuple[int, Db.ObjectId, Ge.Point3d, float]] = []
+        # Build (index, OID, top_pt, bottom_dist, end_pt) for each stroke.
+        # bottom_dist is the REAL distance along the bottom curve at the line's end.
+        # For long strokes end_pt is on/near bottom curve; for short strokes we
+        # project end_pt onto bottom curve to get the true parametric position.
+        stroke_infos: list[tuple[int, Db.ObjectId, Ge.Point3d, float, Ge.Point3d]] = []
         for s_oid in stroke_oids:
             try:
                 line = Db.Entity(s_oid, Db.OpenMode.kForRead)
@@ -632,23 +636,25 @@ def slope_edit() -> None:
                     line.close()
                     continue
                 top_pt = line_curve.getStartPoint()
-                bot_pt = line_curve.getEndPoint()
+                end_pt = line_curve.getEndPoint()
+
                 try:
-                    closest = bot_curve.getClosestPointTo(bot_pt, False)
-                    bot_dist = bot_curve.getDistAtPoint(closest)
+                    # Project end_pt onto bottom curve — this naturally gives
+                    # the parametric position for both long and short strokes.
+                    bp_on_bot = bot_curve.getClosestPointTo(end_pt, False)
+                    bot_dist = bot_curve.getDistAtPoint(bp_on_bot)
                 except Exception:
                     bot_dist = 0.0
-                stroke_infos.append((idx, s_oid, top_pt, bot_dist, bot_pt))
+
+                stroke_infos.append((idx, s_oid, top_pt, bot_dist, end_pt))
                 line.close()
             except Exception:
                 pass
 
-        # Sort by index
         stroke_infos.sort(key=lambda x: x[0])
         total_strokes = len(stroke_infos)
         top_pts = [s[2] for s in stroke_infos]
         orig_bot_dists = [s[3] for s in stroke_infos]
-        orig_end_pts = [s[4] for s in stroke_infos]
 
         # Step from XData (stored in num_strokes slot) – estimate from existing strokes
         step = bot_len / max(total_strokes - 1, 1) if total_strokes > 1 else 1.0
@@ -669,23 +675,15 @@ def slope_edit() -> None:
 
         # ── Jig ──
         from igi_tools.commands.slope.jig import SlopeEditJig
-        from igi_tools.commands.slope.ui import _RadiusSlider
-        radius_dlg = _RadiusSlider()
-        radius_dlg.Show()
-        try:
-            jig = SlopeEditJig(
-                top_curve, bot_curve,
-                top_pts, orig_bot_dists,
-                sel_array_idx, bot_len, total_strokes,
-                step, bottom_offset, short_count,
-                use_mid_length, mid_ratio, mid_length,
-                plane_normal,
-                radius_dlg=radius_dlg,
-                orig_end_pts=orig_end_pts,
-            )
-            drag_status = jig.drag()
-        finally:
-            radius_dlg.Destroy()
+        jig = SlopeEditJig(
+            top_curve, bot_curve,
+            top_pts, orig_bot_dists,
+            sel_array_idx, bot_len, total_strokes,
+            step, bottom_offset, short_count,
+            use_mid_length, mid_ratio, mid_length,
+            plane_normal,
+        )
+        drag_status = jig.drag()
 
         # Close curves
         top_curve.close()
