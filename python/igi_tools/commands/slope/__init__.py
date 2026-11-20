@@ -132,6 +132,72 @@ def _is_self_intersecting(curve: Db.Curve) -> bool:
     return False
 
 
+def _find_intersection_range(
+    f_top: Db.Curve,
+    f_bottom: Db.Curve,
+) -> tuple[float, float, float, float, bool] | None:
+    """Найти точки пересечения и вернуть (top_start, top_end, bot_start, bot_end, need_reverse_bot).
+
+    need_reverse_bot=True когда полезный сегмент нижнего контура проходит
+    в обратном направлении относительно его естественного хода (т.е. точки
+    пересечения располагаются на нижнем в порядке, обратном верхнему).
+    В этом случае caller должен развернуть нижний контур.
+
+    При 2+ точках — диапазон между крайними на обоих контурах.
+    При 1 точке — диапазон от начала контура до неё, need_reverse_bot=False.
+    None если пересечений нет.
+    """
+    try:
+        coll = f_top.intersectWith(f_bottom, Db.Intersect.kOnBothOperands)
+        if not coll or len(coll) < 1:
+            return None
+
+        # Собираем ПАРНЫЕ расстояния: (dist_on_top, dist_on_bottom)
+        pairs: list[tuple[float, float]] = []
+        for p in coll:
+            try:
+                d_top = f_top.getDistAtPoint(p)
+            except Exception:
+                try:
+                    snap = f_top.getClosestPointTo(p, False)
+                    d_top = f_top.getDistAtPoint(snap)
+                except Exception:
+                    continue
+            try:
+                d_bot = f_bottom.getDistAtPoint(p)
+            except Exception:
+                try:
+                    snap = f_bottom.getClosestPointTo(p, False)
+                    d_bot = f_bottom.getDistAtPoint(snap)
+                except Exception:
+                    continue
+            pairs.append((d_top, d_bot))
+
+        if len(pairs) == 0:
+            return None
+
+        if len(pairs) == 1:
+            d_top, d_bot = pairs[0]
+            return (0.0, d_top, 0.0, d_bot, False)
+
+        # Сортируем по верхнему расстоянию — проверяем соответствие направлений
+        pairs.sort(key=lambda x: x[0])
+        t_min, b_at_t_min = pairs[0]
+        t_max, b_at_t_max = pairs[-1]
+
+        # Если на нижнем дистанции убывают при возрастании верхних,
+        # то полезный отрезок на нижнем идёт «задом наперёд» — нужен реверс.
+        need_reverse = b_at_t_min > b_at_t_max
+
+        b_start = min(b_at_t_min, b_at_t_max)
+        b_end = max(b_at_t_min, b_at_t_max)
+
+        return (t_min, t_max, b_start, b_end, need_reverse)
+    except Exception as exc:
+        print(f"[IGI Tools] _find_intersection_range: ошибка {exc}")
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Helpers that open entity by OID, read, and close
 # ---------------------------------------------------------------------------
@@ -382,6 +448,29 @@ def slope_create() -> None:
             f_bottom.reverseCurve()
             Lb = _get_curve_length(f_bottom)
 
+        # ── Find intersection range (two extreme points) ──
+        top_offset = 0.0
+        bot_offset = 0.0
+        ir = _find_intersection_range(f_top, f_bottom)
+        if ir is not None:
+            top_start, top_end, bot_start, bot_end, need_reverse_bot = ir
+            if need_reverse_bot:
+                f_bottom.reverseCurve()
+                Lb = _get_curve_length(f_bottom)
+                bot_start, bot_end = Lb - bot_end, Lb - bot_start
+            Lt_range = top_end - top_start
+            Lb_range = bot_end - bot_start
+            if Lt_range >= step and Lb_range >= step:
+                print(f"[IGI Tools] Диапазон откоса между точками пересечений: "
+                      f"top={top_start:.2f}..{top_end:.2f}, "
+                      f"bot={bot_start:.2f}..{bot_end:.2f}")
+                top_offset = top_start
+                bot_offset = bot_start
+                Lt = Lt_range
+                Lb = Lb_range
+            else:
+                print(f"[IGI Tools] Диапазон пересечений меньше шага — обрезка не применяется.")
+
         # ── Determine stroke count ──
         total_strokes = max(3, int(round(Lt / step)) + 1) if top_closed else max(
             2, int(round(Lt / step)) + 1
@@ -399,8 +488,8 @@ def slope_create() -> None:
         bot_pts: list[Ge.Point3d] = []
 
         for i in range(total_strokes):
-            td = min(top_step_i * i, Lt - 1e-10)
-            bd = min(bot_step_i * i, Lb - 1e-10)
+            td = min(top_offset + top_step_i * i, top_offset + Lt - 1e-10)
+            bd = min(bot_offset + bot_step_i * i, bot_offset + Lb - 1e-10)
 
             tp = f_top.getPointAtDist(td)
             bp = f_bottom.getPointAtDist(bd)
@@ -608,6 +697,29 @@ def slope_edit() -> None:
 
         bot_len = _get_curve_length(bot_curve)
 
+        # ── Project curves for intersection check ──
+        ucs_origin = Ed.Editor.getCurrentUCS().origin()
+        plane_normal = Ed.Editor.ucsNormalVector()
+        ucs_plane = Ge.Plane(ucs_origin, plane_normal)
+        try:
+            f_top_edit = top_curve.getOrthoProjectedCurve(ucs_plane)
+        except Exception:
+            f_top_edit = Db.Curve.cloneFrom(top_curve)
+        try:
+            f_bot_edit = bot_curve.getOrthoProjectedCurve(ucs_plane)
+        except Exception:
+            f_bot_edit = Db.Curve.cloneFrom(bot_curve)
+
+        # ── Find intersection range for filtering existing strokes ──
+        ir = _find_intersection_range(f_top_edit, f_bot_edit)
+        clip_bot_start: float | None = None
+        clip_bot_end: float | None = None
+        if ir is not None:
+            _, _, clip_bot_start, clip_bot_end, _ = ir
+            print(f"[IGI Tools] Диапазон пересечений на нижнем контуре: "
+                  f"{clip_bot_start:.2f}..{clip_bot_end:.2f}. "
+                  f"Штрихи вне диапазона будут исключены.")
+
         # Find all stroke OIDs by scanning modelspace (more reliable than Xrecord)
         stroke_oids = _find_stroke_oids_in_group(db, group_guid)
         if not stroke_oids:
@@ -653,6 +765,23 @@ def slope_edit() -> None:
                 pass
 
         stroke_infos.sort(key=lambda x: x[0])
+
+        # ── Filter strokes outside intersection range ──
+        if clip_bot_start is not None and clip_bot_end is not None:
+            bot_range = clip_bot_end - clip_bot_start
+            if bot_range < bot_len * 0.01:
+                print(f"[IGI Tools]   Диапазон слишком мал ({bot_range:.2f}) — фильтрация отключена.")
+            else:
+                stroke_infos = [
+                    si for si in stroke_infos
+                    if clip_bot_start - 1e-8 <= si[3] <= clip_bot_end + 1e-8
+                ]
+            if not stroke_infos:
+                print("\n[IGI Tools] Все штрихи оказались вне диапазона пересечения контуров.")
+                top_curve.close()
+                bot_curve.close()
+                return
+
         total_strokes = len(stroke_infos)
         top_pts = [s[2] for s in stroke_infos]
         orig_bot_dists = [s[3] for s in stroke_infos]
@@ -670,9 +799,6 @@ def slope_edit() -> None:
             top_curve.close()
             bot_curve.close()
             return
-
-        # Project plane for 3D curve reads
-        plane_normal = Ed.Editor.ucsNormalVector()
 
         # ── Modeless slider dialog (radius + power) ──
         from igi_tools.commands.slope.ui import _RadiusEditSlider
@@ -907,6 +1033,29 @@ def _rebuild_slope(
         f_bottom.reverseCurve()
         Lb = _get_curve_length(f_bottom)
 
+    # ── Find intersection range (two extreme points) ──
+    top_offset = 0.0
+    bot_offset = 0.0
+    ir = _find_intersection_range(f_top, f_bottom)
+    if ir is not None:
+        top_start, top_end, bot_start, bot_end, need_reverse_bot = ir
+        if need_reverse_bot:
+            f_bottom.reverseCurve()
+            Lb = _get_curve_length(f_bottom)
+            bot_start, bot_end = Lb - bot_end, Lb - bot_start
+        Lt_range = top_end - top_start
+        Lb_range = bot_end - bot_start
+        if Lt_range >= step and Lb_range >= step:
+            print(f"[IGI Tools] Диапазон откоса между точками пересечений: "
+                  f"top={top_start:.2f}..{top_end:.2f}, "
+                  f"bot={bot_start:.2f}..{bot_end:.2f}")
+            top_offset = top_start
+            bot_offset = bot_start
+            Lt = Lt_range
+            Lb = Lb_range
+        else:
+            print(f"[IGI Tools] Диапазон пересечений меньше шага — обрезка не применяется.")
+
     total_strokes = max(3, int(round(Lt / step)) + 1) if top_closed else max(
         2, int(round(Lt / step)) + 1
     )
@@ -925,8 +1074,8 @@ def _rebuild_slope(
     tr = mgr.startTransaction()
     try:
         for i in range(total_strokes):
-            td = min(top_step_i * i, Lt - 1e-10)
-            bd = min(bot_step_i * i, Lb - 1e-10)
+            td = min(top_offset + top_step_i * i, top_offset + Lt - 1e-10)
+            bd = min(bot_offset + bot_step_i * i, bot_offset + Lb - 1e-10)
             tp = f_top.getPointAtDist(td)
             bp = f_bottom.getPointAtDist(bd)
 
