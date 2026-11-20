@@ -12,8 +12,9 @@ class SlopeEditJig(Ed.DrawJig):
 
     Behaviour:
       - Dragged bottom endpoint moves along the bottom curve.
-      - All strokes are affected with non-linear falloff (power 3.0):
-        maximum change at selected stroke, fading accelerates with distance.
+      - Only strokes within `radius` of the selected index are affected,
+        with falloff (power^) from 1.0 (selected) to 0.0 (edge of radius).
+      - Strokes outside the radius stay unchanged.
     """
 
     def __init__(
@@ -32,7 +33,7 @@ class SlopeEditJig(Ed.DrawJig):
         mid_ratio: float,
         mid_length: float,
         plane_normal: Ge.Vector3d,
-        slider_dlg: object | None = None,
+        radius_dlg: object | None = None,
     ) -> None:
         super().__init__()
         self._top_curve = top_curve
@@ -49,7 +50,7 @@ class SlopeEditJig(Ed.DrawJig):
         self._mid_ratio = mid_ratio
         self._mid_length = mid_length
         self._plane_normal = plane_normal
-        self._slider_dlg = slider_dlg
+        self._radius_dlg = radius_dlg
 
         # ── Compute "мысленные" дистанции для коротких штрихов ──
         # Для длинных orig_bottom_dists — это проекция реального end_pt на bot_curve,
@@ -107,23 +108,18 @@ class SlopeEditJig(Ed.DrawJig):
             "Откос: двигайте низ штриха"
         )
 
-    def _get_power_left(self) -> float:
-        """Get current power for strokes left of selection."""
-        if self._slider_dlg is not None:
+    def _get_radius(self) -> int:
+        """Get current capture radius from the modeless dialog."""
+        if self._radius_dlg is not None:
             try:
-                return float(self._slider_dlg.power_left)
+                return int(self._radius_dlg.radius)
             except Exception:
                 pass
-        return 5.0
+        return max(self._sel_idx, self._total_strokes - 1 - self._sel_idx)
 
-    def _get_power_right(self) -> float:
-        """Get current power for strokes right of selection."""
-        if self._slider_dlg is not None:
-            try:
-                return float(self._slider_dlg.power_right)
-            except Exception:
-                pass
-        return 5.0
+    def _get_power(self) -> float:
+        """Fixed linear falloff: power = 1.0"""
+        return 1.0
 
     # ── Jig overrides ──
 
@@ -140,13 +136,12 @@ class SlopeEditJig(Ed.DrawJig):
     def update(self) -> bool:
         """Compute new bottom end positions.
 
-        Falloff by positional percentage:
-          t = |i - sel_idx| / total_strokes   (0..1 fraction of total strokes)
-          fade = (1 - t)⁵
-        - Selected stroke (t=0): full displacement.
-        - Early neighbours (t ~0.05): ~0.77, visible falloff.
-        - Far strokes (t ~0.3): ~0.17, nearly stationary.
-        - Works identically for both 5 and 100 strokes.
+        Falloff within radius:
+          - Only strokes with |i - sel_idx| <= radius are affected.
+          - t_rel = |i - sel_idx| / radius   (0..1 within radius)
+          - fade = (1.0 - t_rel) ** 1.0  (linear falloff)
+          - At radius boundary: fade = 0 (no displacement).
+          - Outside radius: unchanged.
         """
         if self._cursor_pt is None:
             return False
@@ -165,14 +160,12 @@ class SlopeEditJig(Ed.DrawJig):
         cursor_dist = max(lo, min(cursor_dist, hi))
 
         # Displacement of the selected stroke (delta from original)
-        # Для выбранного штриха используем мысленную дистанцию (extended),
-        # чтобы delta была корректна независимо от того, короткий штрих или длинный
         sel_orig = self._extended_bottom_dists[self._sel_idx]
         delta = cursor_dist - sel_orig
 
         total = self._total_strokes
-        power_left = self._get_power_left()
-        power_right = self._get_power_right()
+        radius = self._get_radius()
+        power = self._get_power()
 
         new_end_pts: list[Ge.Point3d] = []
         new_bottom_dists: list[float] = []
@@ -180,40 +173,31 @@ class SlopeEditJig(Ed.DrawJig):
 
         for i in range(total):
             is_short = self._is_short_stroke(i)
+            dist = abs(i - self._sel_idx)
+
+            # Fade calculation: 1.0 at selected, 0.0 at radius boundary
+            if dist <= radius:
+                if i == self._sel_idx:
+                    fade = 1.0
+                else:
+                    t_rel = dist / radius if radius > 0 else 1.0
+                    fade = 1.0 - t_rel  # linear falloff
+            else:
+                fade = 0.0
 
             if is_short:
-                # Для короткого штриха применяем смещение к "мысленной" дистанции
                 ext_orig = self._extended_bottom_dists[i]
-                if i == self._sel_idx:
-                    new_ext = cursor_dist
-                else:
-                    t = abs(i - self._sel_idx) / total
-                    if i < self._sel_idx:
-                        fade = (1.0 - t) ** power_left
-                    else:
-                        fade = (1.0 - t) ** power_right
-                    new_ext = ext_orig + delta * fade
+                new_ext = ext_orig + delta * fade
                 new_ext = max(0.0, min(new_ext, self._bot_length - 1e-10))
                 new_extended_dists.append(new_ext)
-                # Для short stroke берём точку на контуре по мысленной дистанции
                 try:
                     bp = self._bot_curve.getPointAtDist(new_ext)
                 except Exception:
                     bp = self._stroke_top_pts[i]
-                # Сохраняем проекцию реального конца (для clamped)
                 new_bottom_dists.append(new_ext)
             else:
-                # Для длинного — как было: по orig_bottom_dists
                 orig_d = self._orig_bottom_dists[i]
-                if i == self._sel_idx:
-                    new_d = cursor_dist
-                else:
-                    t = abs(i - self._sel_idx) / total
-                    if i < self._sel_idx:
-                        fade = (1.0 - t) ** power_left
-                    else:
-                        fade = (1.0 - t) ** power_right
-                    new_d = orig_d + delta * fade
+                new_d = orig_d + delta * fade
                 new_d = max(0.0, min(new_d, self._bot_length - 1e-10))
                 new_bottom_dists.append(new_d)
                 new_extended_dists.append(new_d)
@@ -231,19 +215,28 @@ class SlopeEditJig(Ed.DrawJig):
         return True
 
     def worldDraw(self, wd: Gi.WorldDraw) -> bool:
-        """Draw preview strokes."""
+        """Draw preview strokes.
+
+        - Green: selected stroke.
+        - Yellow: affected neighbours (within radius).
+        - Gray: outside radius (unchanged).
+        """
         traits = wd.subEntityTraits()
         geo = wd.geometry()
         normal = self._plane_normal
+        radius = self._get_radius()
 
         for i in range(self._total_strokes):
             top_pt = self._stroke_top_pts[i]
             end_pt = self._new_end_pts[i] if i < len(self._new_end_pts) else top_pt
 
+            dist = abs(i - self._sel_idx)
             if i == self._sel_idx:
                 traits.setColor(3)  # green – selected
-            else:
+            elif dist <= radius:
                 traits.setColor(2)  # yellow – affected neighbours
+            else:
+                traits.setColor(8)  # grey – outside radius
 
             geo.polyline([top_pt, end_pt], normal)
 

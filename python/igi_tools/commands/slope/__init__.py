@@ -674,14 +674,15 @@ def slope_edit() -> None:
         # Project plane for 3D curve reads
         plane_normal = Ed.Editor.ucsNormalVector()
 
-        # ── Modeless slider dialog ──
-        from igi_tools.commands.slope.ui import _SlopeEditSlider
+        # ── Modeless slider dialog (radius + power) ──
+        from igi_tools.commands.slope.ui import _RadiusEditSlider
         from igi_tools.commands.slope.jig import SlopeEditJig
 
         import wx
         res_override = Ap.ResourceOverride()
-        slider_dlg = _SlopeEditSlider()
-        slider_dlg.Show()
+        is_closed = top_curve.isClosed()
+        radius_dlg = _RadiusEditSlider(total_strokes, sel_array_idx, is_closed)
+        radius_dlg.Show()
         wx.Yield()
 
         jig = SlopeEditJig(
@@ -691,12 +692,12 @@ def slope_edit() -> None:
             step, bottom_offset, short_count,
             use_mid_length, mid_ratio, mid_length,
             plane_normal,
-            slider_dlg=slider_dlg,
+            radius_dlg=radius_dlg,
         )
         drag_status = jig.drag()
 
-        # Close curves + slider
-        slider_dlg.Destroy()
+        # Close curves + dialog
+        radius_dlg.Destroy()
         del res_override
         top_curve.close()
         bot_curve.close()

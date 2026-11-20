@@ -226,37 +226,41 @@ def _show_dialog(
         del res_override
 
 
-class _SlopeEditSlider(wx.Dialog):
-    """Modeless dialog with two sliders: left and right falloff power."""
+class _RadiusEditSlider(wx.Dialog):
+    """Modeless dialog: radius (how many neighbours) + power (falloff steepness)."""
 
-    def __init__(self):
+    def __init__(self, total_strokes: int, sel_idx: int, is_closed: bool):
         style = wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP
-        wx.Dialog.__init__(self, None, title="Затухание откоса", style=style)
-        self.SetMinSize(wx.Size(260, 160))
+        wx.Dialog.__init__(self, None, title="Редактирование откоса", style=style)
+        self.SetMinSize(wx.Size(280, 120))
+
+        # Максимальный радиус
+        if is_closed:
+            max_radius = total_strokes // 2
+        else:
+            max_left = sel_idx
+            max_right = total_strokes - 1 - sel_idx
+            max_radius = max(max_left, max_right)
+
+        # Начальный радиус — примерно треть от макс, но не меньше 1
+        default_radius = max(1, min(max_radius, max_radius // 3))
 
         panel = wx.Panel(self)
         vsizer = wx.BoxSizer(wx.VERTICAL)
 
-        # ── Левая сторона ──
-        vsizer.Add(wx.StaticText(panel, label="Левая сторона (степень):"),
+        # ── Радиус (количество соседей по обе стороны) ──
+        vsizer.Add(wx.StaticText(panel, label="Радиус (штрихов по обе стороны):"),
                    flag=wx.BOTTOM, border=2)
-        self.slider_left = wx.Slider(panel, value=5, minValue=0,
-                                     maxValue=20, size=(200, -1),
-                                     style=wx.SL_HORIZONTAL | wx.SL_LABELS)
-        vsizer.Add(self.slider_left, flag=wx.EXPAND | wx.BOTTOM, border=8)
-
-        # ── Правая сторона ──
-        vsizer.Add(wx.StaticText(panel, label="Правая сторона (степень):"),
-                   flag=wx.BOTTOM, border=2)
-        self.slider_right = wx.Slider(panel, value=5, minValue=0,
-                                      maxValue=20, size=(200, -1),
-                                      style=wx.SL_HORIZONTAL | wx.SL_LABELS)
-        vsizer.Add(self.slider_right, flag=wx.EXPAND | wx.BOTTOM, border=12)
+        self.slider_radius = wx.Slider(
+            panel, value=default_radius, minValue=1, maxValue=max_radius,
+            size=(220, -1),
+            style=wx.SL_HORIZONTAL | wx.SL_LABELS | wx.SL_AUTOTICKS,
+        )
+        vsizer.Add(self.slider_radius, flag=wx.EXPAND | wx.BOTTOM, border=8)
 
         # ── Пояснение ──
-        info = wx.StaticText(panel, label="0 = все штрихи одинаково\n"
-                                         "5 = умеренное затухание\n"
-                                         "20 = резкое затухание")
+        info = wx.StaticText(panel, label="Линейное затухание от выбранного штриха\n"
+                                          "до края радиуса")
         info.SetForegroundColour(wx.Colour(100, 100, 100))
         vsizer.Add(info, flag=wx.ALIGN_CENTER)
 
@@ -267,37 +271,5 @@ class _SlopeEditSlider(wx.Dialog):
         self.SetPosition(wx.Point(20, 80))
 
     @property
-    def power_left(self) -> float:
-        return float(self.slider_left.GetValue())
-
-    @property
-    def power_right(self) -> float:
-        return float(self.slider_right.GetValue())
-
-
-class _RadiusSlider(wx.Dialog):
-    """Modeless dialog to adjust capture radius during Jig."""
-
-    def __init__(self):
-        style = wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP
-        wx.Dialog.__init__(self, None, title="Радиус захвата", style=style)
-        self.SetMinSize(wx.Size(200, 80))
-
-        panel = wx.Panel(self)
-        hsizer = wx.BoxSizer(wx.HORIZONTAL)
-
-        hsizer.Add(
-            wx.StaticText(panel, label="Соседей:"),
-            flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=8,
-        )
-        self.spin = wx.SpinCtrl(panel, value="3", min=0, max=50, size=(80, -1))
-        hsizer.Add(self.spin, flag=wx.ALIGN_CENTER_VERTICAL)
-
-        panel.SetSizer(hsizer)
-        hsizer.Fit(panel)
-        self.Fit()
-        self.SetPosition(wx.Point(20, 80))
-
-    @property
     def radius(self) -> int:
-        return self.spin.GetValue()
+        return self.slider_radius.GetValue()
