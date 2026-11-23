@@ -288,7 +288,7 @@ class _RadiusEditSlider(wx.Dialog):
         outer.Add(vsizer, proportion=1, flag=wx.EXPAND | wx.ALL, border=10)
         panel.SetSizer(outer)
         self.Fit()
-        self.SetPosition(wx.Point(20, 80))
+        self.CenterOnScreen()
 
     @property
     def radius(self) -> int:
