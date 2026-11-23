@@ -368,23 +368,12 @@ def _make_line(
 # ---------------------------------------------------------------------------
 
 
-def _is_short_stroke(index: int, short_count: int) -> bool:
-    """Determine if stroke at `index` should be short, per SSTools schemes.
+def _is_short_stroke(index: int) -> bool:
+    """Determine if stroke at `index` should be short.
 
-    short_count: 0=all full, 1=first only, 2=even non-zero, 3=every 3rd, 4=mask.
+    Always uses scheme "Через один (чётные)" — every even non-zero index.
     """
-    if short_count == 0:
-        return False
-    if short_count == 1:
-        return index == 0
-    if short_count == 2:
-        return index > 0 and index % 2 == 0
-    if short_count == 3:
-        return index > 0 and index % 3 == 0
-    if short_count == 4:
-        # Special mask: pattern from the original
-        return index > 0 and ((index % 4 == 0) or ((index + 1) % 4 == 0 and index % 2 != 0))
-    return False
+    return index > 0 and index % 2 == 0
 
 
 # ---------------------------------------------------------------------------
@@ -393,17 +382,15 @@ def _is_short_stroke(index: int, short_count: int) -> bool:
 
 
 def _check_min_strokes(
-    num_strokes: int, short_count: int, closed: bool
+    num_strokes: int, closed: bool
 ) -> bool:
-    """Return True if the stroke count is acceptable (> minimum thresholds)."""
+    """Return True if the stroke count is acceptable (> minimum thresholds).
+
+    Always uses "Через один (чётные)" scheme, needing at least 6 for closed.
+    """
     if not closed:
         return True  # open curves are less strict
-    if short_count == 2:
-        # need at least 6 for closed with shortCount=2
-        return num_strokes >= 6
-    if short_count in (1, 3):
-        return num_strokes >= 3
-    return True
+    return num_strokes >= 6
 
 
 # ---------------------------------------------------------------------------

@@ -18,7 +18,6 @@ from igi_tools.commands.slope.config import (
     _DEFAULT_LAYER,
     _DEFAULT_MID_LENGTH,
     _DEFAULT_MID_RATIO,
-    _DEFAULT_SHORT_COUNT,
     _DEFAULT_STEP,
     _DEFAULT_USE_MID_LENGTH,
     _load_settings,
@@ -403,11 +402,11 @@ def slope_create() -> None:
         saved = _load_settings()
         saved.setdefault("step", _DEFAULT_STEP)
         saved.setdefault("bottom_offset", _DEFAULT_BOTTOM_OFFSET)
-        saved.setdefault("short_count", _DEFAULT_SHORT_COUNT)
         saved.setdefault("use_mid_length", _DEFAULT_USE_MID_LENGTH)
         saved.setdefault("mid_ratio", _DEFAULT_MID_RATIO)
         saved.setdefault("mid_length", _DEFAULT_MID_LENGTH)
         saved.setdefault("layer", _DEFAULT_LAYER)
+        saved.setdefault("use_default_layer", True)
 
         # ── Dialog ──
         result = _show_dialog(saved)
@@ -417,7 +416,7 @@ def slope_create() -> None:
 
         step = result["step"]
         bottom_offset = result["bottom_offset"]
-        short_count = result["short_count"]
+        short_count = 2  # Always "Через один (чётные)"
         use_mid_length = result["use_mid_length"]
         mid_ratio = result["mid_ratio"]
         mid_length = result["mid_length"]
@@ -425,7 +424,7 @@ def slope_create() -> None:
 
         print(
             f"\n[IGI Tools] Параметры: шаг={step}, отступ={bottom_offset}, "
-            f"shortCount={short_count}, useMid={use_mid_length}, "
+            f"shortCount=2, useMid={use_mid_length}, "
             f"midRatio={mid_ratio}, midLength={mid_length}, слой={layer_name}"
         )
 
@@ -531,7 +530,7 @@ def slope_create() -> None:
             2, int(round(Lt / step)) + 1
         )
 
-        if not _check_min_strokes(total_strokes, short_count, top_closed):
+        if not _check_min_strokes(total_strokes, top_closed):
             print("\n[IGI Tools] Слишком мало штрихов для выбранной схемы.")
             return
 
@@ -586,7 +585,7 @@ def slope_create() -> None:
         tr = mgr.startTransaction()
         try:
             for i in range(total_strokes):
-                is_short = _is_short_stroke(i, short_count)
+                is_short = _is_short_stroke(i)
                 end_pt = _compute_stroke_end(
                     top_pts[i],
                     bot_pts[i],
@@ -626,7 +625,7 @@ def slope_create() -> None:
                     group_guid,
                     total_strokes,
                     bottom_offset,
-                    short_count,
+                    2,  # short_count — always "Через один (чётные)"
                     mid_ratio,
                     use_mid_length,
                     mid_length,
@@ -650,11 +649,11 @@ def slope_create() -> None:
             {
                 "step": step,
                 "bottom_offset": bottom_offset,
-                "short_count": short_count,
                 "use_mid_length": use_mid_length,
                 "mid_ratio": mid_ratio,
                 "mid_length": mid_length,
                 "layer": layer_name,
+                "use_default_layer": result.get("use_default_layer", True),
             }
         )
 
@@ -723,9 +722,9 @@ def slope_edit() -> None:
 
         total_original = _xdata_get_int(txd, 4)  # num_strokes from creation
         bottom_offset = _xdata_get_double(txd, 5) or _DEFAULT_BOTTOM_OFFSET
-        short_count = _xdata_get_int(txd, 6) or _DEFAULT_SHORT_COUNT
-        use_mid_length = bool(_xdata_get_int(txd, 8) or _DEFAULT_USE_MID_LENGTH)
+        short_count = _xdata_get_int(txd, 6) or 2
         mid_ratio = _xdata_get_double(txd, 7) or _DEFAULT_MID_RATIO
+        use_mid_length = bool(_xdata_get_int(txd, 8) or _DEFAULT_USE_MID_LENGTH)
         mid_length = _xdata_get_double(txd, 9) or _DEFAULT_MID_LENGTH
 
         # Try reading layer from first stroke
@@ -877,8 +876,7 @@ def slope_edit() -> None:
             top_curve, bot_curve,
             top_pts, orig_bot_dists,
             sel_array_idx, bot_len, total_strokes,
-            step, bottom_offset, short_count,
-            use_mid_length, mid_ratio, mid_length,
+            step, bottom_offset, mid_ratio, use_mid_length, mid_length,
             plane_normal,
             radius_dlg=radius_dlg,
         )
@@ -916,7 +914,7 @@ def slope_edit() -> None:
             new_stroke_handles: list[str] = []
 
             for i in range(total_strokes):
-                is_short = _is_short_stroke(i, short_count)
+                is_short = _is_short_stroke(i)
                 end_pt = new_end_pts[i]
 
                 model = Db.BlockTableRecord(db.modelSpaceId(), Db.OpenMode.kForWrite)
@@ -1038,8 +1036,8 @@ def _rebuild_slope(
     step: float,
     bottom_offset: float,
     short_count: int,
-    use_mid_length: bool,
     mid_ratio: float,
+    use_mid_length: bool,
     mid_length: float,
     layer_name: str,
 ) -> None:
@@ -1115,7 +1113,7 @@ def _rebuild_slope(
     total_strokes = max(3, int(round(Lt / step)) + 1) if top_closed else max(
         2, int(round(Lt / step)) + 1
     )
-    if not _check_min_strokes(total_strokes, short_count, top_closed):
+    if not _check_min_strokes(total_strokes, top_closed):
         return
 
     top_step_i = Lt / (total_strokes - 1) if total_strokes > 1 else Lt
@@ -1158,7 +1156,7 @@ def _rebuild_slope(
             else:
                 bp_3d = bp
 
-            is_short = _is_short_stroke(i, short_count)
+            is_short = _is_short_stroke(i)
             end_pt = _compute_stroke_end(
                 tp_3d, bp_3d, is_short,
                 bottom_offset, mid_ratio, use_mid_length, mid_length,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pyrx import Db, Ed, Ge, Gi
 
-from igi_tools.commands.slope.geometry import _compute_stroke_end
+from igi_tools.commands.slope.geometry import _compute_stroke_end, _is_short_stroke
 
 
 class SlopeEditJig(Ed.DrawJig):
@@ -28,9 +28,8 @@ class SlopeEditJig(Ed.DrawJig):
         total_strokes: int,
         step: float,
         bottom_offset: float,
-        short_count: int,
-        use_mid_length: bool,
         mid_ratio: float,
+        use_mid_length: bool,
         mid_length: float,
         plane_normal: Ge.Vector3d,
         radius_dlg: object | None = None,
@@ -45,9 +44,8 @@ class SlopeEditJig(Ed.DrawJig):
         self._total_strokes = total_strokes
         self._step = step
         self._bottom_offset = bottom_offset
-        self._short_count = short_count
-        self._use_mid_length = use_mid_length
         self._mid_ratio = mid_ratio
+        self._use_mid_length = use_mid_length
         self._mid_length = mid_length
         self._plane_normal = plane_normal
         self._radius_dlg = radius_dlg
@@ -245,18 +243,8 @@ class SlopeEditJig(Ed.DrawJig):
     # ── Helpers ──
 
     def _is_short_stroke(self, index: int) -> bool:
-        """Mirrors geometry._is_short_stroke."""
-        sc = self._short_count
-        if sc == 0:
-            return False
-        if sc == 1:
-            return index == 0
-        if sc == 2:
-            return index > 0 and index % 2 == 0
-        if sc == 3:
-            return index > 0 and index % 3 == 0
-        # sc == 4 — special mask; treat as every 2nd for now
-        return index > 0 and index % 2 == 0
+        """Mirrors geometry._is_short_stroke — always "Через один (чётные)"."""
+        return _is_short_stroke(index)
 
     def get_new_end_pts(self) -> list[Ge.Point3d]:
         return list(self._new_end_pts)
@@ -273,8 +261,7 @@ class SlopeEditJig(Ed.DrawJig):
         """Compute actual end point of a stroke (delegates to geometry._compute_stroke_end)."""
         return _compute_stroke_end(
             top_pt, bottom_pt, is_short,
-            self._bottom_offset, self._mid_ratio,
-            self._use_mid_length, self._mid_length,
+            self._bottom_offset, self._mid_ratio, self._use_mid_length, self._mid_length,
         )
 
 

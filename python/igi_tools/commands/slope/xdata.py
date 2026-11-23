@@ -13,9 +13,9 @@ XData layout (all group members):
 Top extra:
   [4] (1071, num_strokes) int32
   [5] (1040, bottom_offset) double
-  [6] (1070, short_count) int16
+  [6] (1071, short_count) int32
   [7] (1040, mid_ratio) double
-  [8] (1070, use_mid_length) int16
+  [8] (1071, use_mid_length) int32
   [9] (1040, mid_length) double
   [10] (1005, bottom_handle) handle
 
@@ -90,9 +90,9 @@ def _make_top_xdata(
         (1000, group_guid),
         (1071, num_strokes),
         (1040, bottom_offset),
-        (1070, short_count),
+        (1071, short_count),
         (1040, mid_ratio),
-        (1070, 1 if use_mid_length else 0),
+        (1071, int(use_mid_length)),
         (1040, mid_length),
         (1005, bottom_handle_str),
     ]

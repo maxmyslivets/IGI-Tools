@@ -10,12 +10,9 @@ from igi_tools.commands.slope.config import (
     _DEFAULT_LAYER,
     _DEFAULT_MID_LENGTH,
     _DEFAULT_MID_RATIO,
-    _DEFAULT_SHORT_COUNT,
     _DEFAULT_STEP,
     _DEFAULT_USE_MID_LENGTH,
-    SHORT_COUNT_NAMES,
 )
-
 
 class _SlopeDialog(wx.Dialog):
     """Modal dialog for slope parameters."""
@@ -23,17 +20,17 @@ class _SlopeDialog(wx.Dialog):
     def __init__(self, saved_state: dict):
         style = wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP | wx.RESIZE_BORDER
         wx.Dialog.__init__(self, None, title="IGI Slope — Параметры откоса", style=style)
-        self.SetMinSize(wx.Size(420, 520))
+        self.SetMinSize(wx.Size(294, 364))
         self.result_data: dict | None = None
 
         # Load saved state
         step_val = str(saved_state.get("step", _DEFAULT_STEP))
         bottom_offset_val = str(saved_state.get("bottom_offset", _DEFAULT_BOTTOM_OFFSET))
-        sc_idx = saved_state.get("short_count", _DEFAULT_SHORT_COUNT)
         use_mid = saved_state.get("use_mid_length", _DEFAULT_USE_MID_LENGTH)
         mid_ratio_val = str(saved_state.get("mid_ratio", _DEFAULT_MID_RATIO))
         mid_len_val = str(saved_state.get("mid_length", _DEFAULT_MID_LENGTH))
-        layer_val = saved_state.get("layer", _DEFAULT_LAYER)
+        layer_use_default = saved_state.get("use_default_layer", True)
+        saved_layer = saved_state.get("layer", _DEFAULT_LAYER)
 
         panel = wx.Panel(self)
         vsizer = wx.BoxSizer(wx.VERTICAL)
@@ -54,56 +51,68 @@ class _SlopeDialog(wx.Dialog):
         psizer.Add(wx.StaticText(psizer.GetStaticBox(), label="Отступ от нижнего контура:"),
                    flag=wx.BOTTOM, border=4)
         self.bo_ctrl = wx.TextCtrl(psizer.GetStaticBox(), value=bottom_offset_val)
-        psizer.Add(self.bo_ctrl, flag=wx.EXPAND | wx.BOTTOM, border=8)
-
-        # Схема коротких штрихов
-        psizer.Add(wx.StaticText(psizer.GetStaticBox(), label="Схема коротких штрихов:"),
-                   flag=wx.BOTTOM, border=4)
-        self.sc_combo = wx.Choice(
-            psizer.GetStaticBox(), choices=SHORT_COUNT_NAMES,
-        )
-        self.sc_combo.SetSelection(min(sc_idx, len(SHORT_COUNT_NAMES) - 1))
-        psizer.Add(self.sc_combo, flag=wx.EXPAND | wx.BOTTOM, border=8)
-
-        # Флаг "использовать фикс. длину"
-        self.use_mid_cb = wx.CheckBox(psizer.GetStaticBox(), label="Фиксированная длина коротких")
-        self.use_mid_cb.SetValue(bool(use_mid))
-        psizer.Add(self.use_mid_cb, flag=wx.BOTTOM, border=4)
-
-        # midRatio (доля длины для коротких)
-        fsizer = wx.BoxSizer(wx.HORIZONTAL)
-        fsizer.Add(wx.StaticText(psizer.GetStaticBox(), label="Доля коротких:"),
-                   flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=8)
-        self.mr_ctrl = wx.TextCtrl(psizer.GetStaticBox(), value=mid_ratio_val, size=(80, -1))
-        fsizer.Add(self.mr_ctrl, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=16)
-        fsizer.Add(wx.StaticText(psizer.GetStaticBox(), label="Длина коротких:"),
-                   flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=8)
-        self.ml_ctrl = wx.TextCtrl(psizer.GetStaticBox(), value=mid_len_val, size=(80, -1))
-        fsizer.Add(self.ml_ctrl, flag=wx.ALIGN_CENTER_VERTICAL)
-        psizer.Add(fsizer, flag=wx.EXPAND | wx.BOTTOM, border=4)
-
-        # Слой
-        psizer.Add(wx.StaticText(psizer.GetStaticBox(), label="Слой:"),
-                   flag=wx.BOTTOM, border=4)
-        row_layer = wx.BoxSizer(wx.HORIZONTAL)
-        self.layer_ctrl = wx.TextCtrl(psizer.GetStaticBox(), value=layer_val)
-        self.layer_btn = wx.Button(psizer.GetStaticBox(), label="Выбрать...")
-        row_layer.Add(self.layer_ctrl, proportion=1, flag=wx.RIGHT, border=4)
-        row_layer.Add(self.layer_btn)
-        psizer.Add(row_layer, flag=wx.EXPAND | wx.BOTTOM, border=4)
+        psizer.Add(self.bo_ctrl, flag=wx.EXPAND | wx.BOTTOM, border=4)
 
         vsizer.Add(psizer, flag=wx.EXPAND | wx.BOTTOM, border=12)
 
-        # ═══ Инфо об объектах ═══
-        info_box = wx.StaticBox(panel, label="Объекты")
-        isizer = wx.StaticBoxSizer(info_box, wx.VERTICAL)
+        # ═══════════ Длина коротких штрихов ═══════════
+        short_box = wx.StaticBox(panel, label="Длина коротких штрихов")
+        ssizer = wx.StaticBoxSizer(short_box, wx.VERTICAL)
 
-        self.top_status = wx.StaticText(isizer.GetStaticBox(), label="(-) Верхний контур не выбран")
-        isizer.Add(self.top_status, flag=wx.BOTTOM, border=2)
-        self.bottom_status = wx.StaticText(isizer.GetStaticBox(), label="(-) Нижний контур не выбран")
-        isizer.Add(self.bottom_status, flag=wx.BOTTOM, border=2)
+        self.cb_fixed = wx.CheckBox(ssizer.GetStaticBox(), label="Фиксированная:")
+        self.cb_fixed.SetValue(bool(use_mid))
+        row_fixed = wx.BoxSizer(wx.HORIZONTAL)
+        row_fixed.Add(self.cb_fixed, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=4)
+        self.ml_ctrl = wx.TextCtrl(ssizer.GetStaticBox(), value=mid_len_val, size=(56, -1))
+        self.ml_ctrl.Enable(bool(use_mid))
+        row_fixed.Add(self.ml_ctrl, flag=wx.ALIGN_CENTER_VERTICAL)
+        ssizer.Add(row_fixed, flag=wx.BOTTOM, border=4)
 
-        vsizer.Add(isizer, flag=wx.EXPAND | wx.BOTTOM, border=12)
+        self.cb_ratio = wx.CheckBox(ssizer.GetStaticBox(), label="Относительная:")
+        self.cb_ratio.SetValue(not bool(use_mid))
+        row_ratio = wx.BoxSizer(wx.HORIZONTAL)
+        row_ratio.Add(self.cb_ratio, flag=wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, border=4)
+        self.mr_ctrl = wx.TextCtrl(ssizer.GetStaticBox(), value=mid_ratio_val, size=(56, -1))
+        self.mr_ctrl.Enable(not bool(use_mid))
+        row_ratio.Add(self.mr_ctrl, flag=wx.ALIGN_CENTER_VERTICAL)
+        ssizer.Add(row_ratio, flag=wx.BOTTOM, border=4)
+
+        self.Bind(wx.EVT_CHECKBOX, self._on_toggle_fixed, self.cb_fixed)
+        self.Bind(wx.EVT_CHECKBOX, self._on_toggle_ratio, self.cb_ratio)
+
+        vsizer.Add(ssizer, flag=wx.EXPAND | wx.BOTTOM, border=12)
+
+        # ═══════════ Слой ═══════════
+        layer_box = wx.StaticBox(panel, label="Слой")
+        lsizer = wx.StaticBoxSizer(layer_box, wx.VERTICAL)
+
+        # ── Чекбокс «По умолчанию» ──
+        self.cb_use_default = wx.CheckBox(
+            lsizer.GetStaticBox(),
+            label=f"По умолчанию ({_DEFAULT_LAYER})",
+        )
+        self.cb_use_default.SetValue(layer_use_default)
+        lsizer.Add(self.cb_use_default, flag=wx.BOTTOM, border=4)
+
+        # ── Выпадающий список слоёв из чертежа ──
+        self.layer_combo = wx.ComboBox(
+            lsizer.GetStaticBox(),
+            choices=[],
+            style=wx.CB_DROPDOWN | wx.CB_READONLY,
+        )
+        lsizer.Add(self.layer_combo, flag=wx.EXPAND | wx.BOTTOM, border=4)
+
+        # ── Заполняем выпадающий список ──
+        dwg_names = self._get_layer_names_from_dwg()
+        for n in dwg_names:
+            self.layer_combo.Append(n)
+        if saved_layer in dwg_names:
+            self.layer_combo.SetValue(saved_layer)
+        elif dwg_names:
+            self.layer_combo.SetSelection(0)
+        self.layer_combo.Enable(not layer_use_default)
+
+        vsizer.Add(lsizer, flag=wx.EXPAND | wx.BOTTOM, border=12)
 
         # ═══ Кнопки ═══
         btns = wx.BoxSizer(wx.HORIZONTAL)
@@ -119,40 +128,11 @@ class _SlopeDialog(wx.Dialog):
         self.Fit()
 
         # Events
-        self.Bind(wx.EVT_BUTTON, self._on_pick_layer, self.layer_btn)
+        self.Bind(wx.EVT_CHECKBOX, self._on_cb_use_default, self.cb_use_default)
         self.Bind(wx.EVT_BUTTON, self._on_ok, id=wx.ID_OK)
         self.Bind(wx.EVT_BUTTON, self._on_cancel, id=wx.ID_CANCEL)
 
         self.CenterOnScreen()
-
-    def set_object_status(self, top_ok: bool, bottom_ok: bool) -> None:
-        if top_ok:
-            self.top_status.SetLabel("(+) Верхний контур выбран")
-            self.top_status.SetForegroundColour(wx.Colour(0, 100, 0))
-        else:
-            self.top_status.SetLabel("(-) Верхний контур не выбран")
-            self.top_status.SetForegroundColour(wx.Colour(140, 140, 140))
-        if bottom_ok:
-            self.bottom_status.SetLabel("(+) Нижний контур выбран")
-            self.bottom_status.SetForegroundColour(wx.Colour(0, 100, 0))
-        else:
-            self.bottom_status.SetLabel("(-) Нижний контур не выбран")
-            self.bottom_status.SetForegroundColour(wx.Colour(140, 140, 140))
-
-    def _on_pick_layer(self, evt) -> None:
-        from pyrx import Ed
-        res = Ed.Editor.entSel("\nВыберите объект на целевом слое: ")
-        if res[0] != Ed.PromptStatus.eOk:
-            return
-        try:
-            ent = Db.Entity(res[1], Db.OpenMode.kForRead)
-            lt = Db.LayerTableRecord(ent.layerId(), Db.OpenMode.kForRead)
-            self.layer_ctrl.SetValue(lt.getName())
-            lt.close()
-            ent.close()
-        except Exception:
-            wx.MessageBox("Не удалось определить слой.", "Ошибка",
-                          wx.OK | wx.ICON_ERROR)
 
     def _on_ok(self, evt) -> None:
         try:
@@ -192,11 +172,12 @@ class _SlopeDialog(wx.Dialog):
             "action": "ok",
             "step": step,
             "bottom_offset": bo,
-            "short_count": self.sc_combo.GetSelection(),
-            "use_mid_length": self.use_mid_cb.GetValue(),
+            "short_count": 2,
             "mid_ratio": mr,
+            "use_mid_length": self.cb_fixed.GetValue(),
             "mid_length": ml,
-            "layer": self.layer_ctrl.GetValue().strip(),
+            "layer": self._get_selected_layer(),
+            "use_default_layer": self.cb_use_default.GetValue(),
         }
         evt.Skip()
 
@@ -204,17 +185,62 @@ class _SlopeDialog(wx.Dialog):
         self.result_data = None
         evt.Skip()
 
+    def _on_cb_use_default(self, evt) -> None:
+        checked = self.cb_use_default.GetValue()
+        self.layer_combo.Enable(not checked)
+
+    def _get_layer_names_from_dwg(self) -> list[str]:
+        """Get all layer names from the current drawing, excluding '0'."""
+        try:
+            db = Db.curDb()
+            lt = Db.LayerTable(db.layerTableId(), Db.OpenMode.kForRead)
+            names: list[str] = []
+            for name, oid in lt:
+                if name != "0":
+                    names.append(name)
+            lt.close()
+            return sorted(names)
+        except Exception as ex:
+            print(f"[IGI Tools] _get_layer_names_from_dwg error: {ex}")
+            return []
+
+    def _get_selected_layer(self) -> str:
+        if self.cb_use_default.GetValue():
+            return _DEFAULT_LAYER
+        val = self.layer_combo.GetValue().strip()
+        return val if val else _DEFAULT_LAYER
+
+    def _on_toggle_fixed(self, evt) -> None:
+        checked = self.cb_fixed.GetValue()
+        if checked:
+            self.cb_ratio.SetValue(False)
+            self.mr_ctrl.Enable(False)
+            self.ml_ctrl.Enable(True)
+        else:
+            self.cb_ratio.SetValue(True)
+            self.mr_ctrl.Enable(True)
+            self.ml_ctrl.Enable(False)
+
+    def _on_toggle_ratio(self, evt) -> None:
+        checked = self.cb_ratio.GetValue()
+        if checked:
+            self.cb_fixed.SetValue(False)
+            self.ml_ctrl.Enable(False)
+            self.mr_ctrl.Enable(True)
+        else:
+            self.cb_fixed.SetValue(True)
+            self.ml_ctrl.Enable(True)
+            self.mr_ctrl.Enable(False)
+
+
 
 def _show_dialog(
     saved_state: dict,
-    top_selected: bool = False,
-    bottom_selected: bool = False,
 ) -> dict | None:
     """Show wx dialog. Returns dict or None if cancelled."""
     res_override = Ap.ResourceOverride()
     dlg = _SlopeDialog(saved_state)
     try:
-        dlg.set_object_status(top_selected, bottom_selected)
         if dlg.ShowModal() == wx.ID_OK:
             return dlg.result_data
         return None
@@ -232,7 +258,7 @@ class _RadiusEditSlider(wx.Dialog):
     def __init__(self, total_strokes: int, sel_idx: int, is_closed: bool):
         style = wx.DEFAULT_DIALOG_STYLE | wx.STAY_ON_TOP
         wx.Dialog.__init__(self, None, title="Редактирование откоса", style=style)
-        self.SetMinSize(wx.Size(280, 120))
+        self.SetMinSize(wx.Size(196, 60))
 
         # Максимальный радиус
         if is_closed:
@@ -253,16 +279,10 @@ class _RadiusEditSlider(wx.Dialog):
                    flag=wx.BOTTOM, border=2)
         self.slider_radius = wx.Slider(
             panel, value=default_radius, minValue=1, maxValue=max_radius,
-            size=(220, -1),
+            size=(154, -1),
             style=wx.SL_HORIZONTAL | wx.SL_LABELS | wx.SL_AUTOTICKS,
         )
         vsizer.Add(self.slider_radius, flag=wx.EXPAND | wx.BOTTOM, border=8)
-
-        # ── Пояснение ──
-        info = wx.StaticText(panel, label="Линейное затухание от выбранного штриха\n"
-                                          "до края радиуса")
-        info.SetForegroundColour(wx.Colour(100, 100, 100))
-        vsizer.Add(info, flag=wx.ALIGN_CENTER)
 
         outer = wx.BoxSizer(wx.VERTICAL)
         outer.Add(vsizer, proportion=1, flag=wx.EXPAND | wx.ALL, border=10)
