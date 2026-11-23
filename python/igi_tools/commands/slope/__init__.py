@@ -56,6 +56,8 @@ from igi_tools.commands.slope.xdata import (
     ROLE_STROKE,
 )
 
+from igi_tools.commands.slope import group as _slope_group  # noqa: F401
+
 # ---------------------------------------------------------------------------
 # Layer helper
 # ---------------------------------------------------------------------------
@@ -862,8 +864,8 @@ def slope_edit() -> None:
             return
 
         # ── Modeless slider dialog (radius + power) ──
-        from igi_tools.commands.slope.ui import _RadiusEditSlider
         from igi_tools.commands.slope.jig import SlopeEditJig
+        from igi_tools.commands.slope.ui import _RadiusEditSlider
 
         import wx
         res_override = Ap.ResourceOverride()
