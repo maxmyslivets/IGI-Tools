@@ -933,23 +933,10 @@ def slope_delete() -> None:
             print("\n[IGI Tools] Отсутствует GUID группы.")
             return
 
-        if not _confirm_yes("Удалить весь откос (штрихи + нижний контур)?"):
-            print("\n[IGI Tools] Удаление отменено.")
-            return
-
         top_oid = _find_role_oid(db, group_guid, ROLE_TOP)
 
         cnt = _erase_strokes_in_group(db, group_guid)
         print(f"\n[IGI Tools] Стерто штрихов: {cnt}")
-
-        bot_oid = _find_role_oid(db, group_guid, ROLE_BOTTOM)
-        if bot_oid is not None:
-            try:
-                be = Db.Entity(bot_oid, Db.OpenMode.kForWrite)
-                be.erase()
-                be.close()
-            except Exception:
-                pass
 
         if top_oid is not None:
             mgr = db.transactionManager()
