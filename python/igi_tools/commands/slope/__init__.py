@@ -12,6 +12,7 @@ import traceback
 
 from pyrx import Ap, Db, Ge, Ed, command
 
+from igi_tools.paths import get_template_path
 from igi_tools.commands.slope.config import (
     _DEFAULT_BOTTOM_OFFSET,
     _DEFAULT_LAYER,
@@ -61,17 +62,71 @@ from igi_tools.commands.slope.xdata import (
 # ---------------------------------------------------------------------------
 
 
+def _try_import_layer_from_template(
+    db: Db.Database, layer_name: str
+) -> Db.ObjectId | None:
+    """Clone a layer definition from template.dwg into the current drawing."""
+    template_path = get_template_path()
+    if not template_path.is_file():
+        return None
+
+    try:
+        src = Db.Database(False, True)
+        src.readDwgFile(
+            str(template_path),
+            Db.DatabaseOpenMode.kForReadAndAllShare,
+            False,
+            "",
+        )
+        src.closeInput(True)
+
+        src_lt = Db.LayerTable(src.layerTableId(), Db.OpenMode.kForRead)
+        if not src_lt.has(layer_name):
+            src_lt.close()
+            return None
+
+        src_layer_id = src_lt.getAt(layer_name)
+        src_lt.close()
+
+        id_map = Db.IdMapping()
+        src.wblockCloneObjects(
+            [src_layer_id],
+            db.layerTableId(),
+            id_map,
+            Db.DuplicateRecordCloning.kDrcReplace,
+            False,
+        )
+
+        lt = Db.LayerTable(db.layerTableId(), Db.OpenMode.kForRead)
+        if lt.has(layer_name):
+            result = lt.getAt(layer_name)
+            lt.close()
+            return result
+        lt.close()
+    except Exception:
+        traceback.print_exc()
+    return None
+
+
 def _ensure_layer(db: Db.Database, layer_name: str) -> Db.ObjectId:
-    """Create layer if absent. Return its ObjectId."""
+    """Create layer if absent, borrowing properties from template.dwg when possible."""
     lt = Db.LayerTable(db.layerTableId(), Db.OpenMode.kForRead)
     if lt.has(layer_name):
         oid = lt.getAt(layer_name)
         lt.close()
         return oid
-    lt.upgradeOpen()
+    lt.close()
+
+    # Try importing from template.dwg first
+    imported = _try_import_layer_from_template(db, layer_name)
+    if imported is not None:
+        return imported
+
+    # Fallback: create with default orange
+    lt = Db.LayerTable(db.layerTableId(), Db.OpenMode.kForWrite)
     rec = Db.LayerTableRecord()
     rec.setName(layer_name)
-    rec.setColor(Db.Color(3))
+    rec.setColor(Db.Color(165, 82, 0))
     oid = lt.add(rec)
     lt.close()
     return oid
@@ -548,6 +603,13 @@ def slope_create() -> None:
                 line = Db.Line(top_pts[i], end_pt)
                 line.setDatabaseDefaults(db)
                 line.setLayer(layer_id)
+                line.setColorIndex(0)  # ByBlock
+                lt = Db.LinetypeTable(db.linetypeTableId(), Db.OpenMode.kForRead)
+                continuous_lt_id = lt.getAt("Continuous")
+                lt.close()
+                line.setLinetype(continuous_lt_id)  # Continuous
+                line.setLinetypeScale(0.5)
+                line.setLineWeight(Db.LineWeight.kLnWt015)  # 0.15 mm
                 line.setXData(
                     _make_stroke_xdata(
                         group_guid, layer_name, i, is_short, top_handle_str,
@@ -861,6 +923,13 @@ def slope_edit() -> None:
                 line = Db.Line(top_pts[i], end_pt)
                 line.setDatabaseDefaults(db)
                 line.setLayer(layer_id)
+                line.setColorIndex(0)  # ByBlock
+                lt = Db.LinetypeTable(db.linetypeTableId(), Db.OpenMode.kForRead)
+                continuous_lt_id = lt.getAt("Continuous")
+                lt.close()
+                line.setLinetype(continuous_lt_id)  # Continuous
+                line.setLinetypeScale(0.5)
+                line.setLineWeight(Db.LineWeight.kLnWt015)  # 0.15 mm
                 line.setXData(
                     _make_stroke_xdata(
                         group_guid, layer_name, i, is_short, top_handle_str,
@@ -1099,6 +1168,13 @@ def _rebuild_slope(
             line = Db.Line(tp_3d, end_pt)
             line.setDatabaseDefaults(db)
             line.setLayer(layer_id)
+            line.setColorIndex(0)  # ByBlock
+            lt = Db.LinetypeTable(db.linetypeTableId(), Db.OpenMode.kForRead)
+            continuous_lt_id = lt.getAt("Continuous")
+            lt.close()
+            line.setLinetype(continuous_lt_id)  # Continuous
+            line.setLinetypeScale(0.5)
+            line.setLineWeight(Db.LineWeight.kLnWt015)  # 0.15 mm
             line.setXData(
                 _make_stroke_xdata(
                     group_guid, layer_name, i, is_short, top_handle_str,
