@@ -2,17 +2,16 @@
   <!-- IGI_SLOPE_GROUP_CREATE: верхний контур, нижний контур, штрихи, плюс -->
   <defs>
     <style>
-      .line { stroke: #2c3e50; stroke-width: 1.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-      .dash { stroke: #2c3e50; stroke-width: 1.0; fill: none; stroke-dasharray: 2,2; stroke-linecap: round; }
-      .plus { stroke: #27ae60; stroke-width: 1.8; fill: none; stroke-linecap: round; }
+      .dash { stroke: #82D99F; stroke-width: 1.0; fill: none; stroke-dasharray: 2,2; stroke-linecap: round; }
+      .plus { stroke: #82D99F; stroke-width: 1.8; fill: none; stroke-linecap: round; }
     </style>
   </defs>
 
   <!-- Верхний контур (полилиния) -->
-  <polyline class="line" points="4,8 12,6 20,10 28,7"/>
+  <polyline class="dash" points="4,8 12,6 20,10 28,7"/>
 
   <!-- Нижний контур (полилиния) -->
-  <polyline class="line" points="5,24 13,22 21,26 28,23"/>
+  <polyline class="dash" points="5,24 13,22 21,26 28,23"/>
 
   <!-- Штрихи (пунктирные линии между контурами) -->
   <line class="dash" x1="7"  y1="10" x2="8"  y2="22"/>
