@@ -10,7 +10,7 @@ TEXT_HEIGHT = 20.0
 
 def _format_yyxx(yy: int, xx: int) -> str:
     """Формат YY+XX с учётом знака: 00+09, 00-01, -01+09, -01-01."""
-    yy_part = f"{yy:02d}" if yy >= 0 else f"-{abs(yy):02d}"
+    yy_part = f"+{yy:02d}" if yy >= 0 else f"-{abs(yy):02d}"
     if xx >= 0:
         return f"{yy_part}+{xx:02d}"
     return f"{yy_part}-{abs(xx):02d}"
