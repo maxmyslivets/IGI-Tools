@@ -1,4 +1,4 @@
-"""Slope hatch configuration persistence."""
+"""Slope configuration persistence."""
 
 from __future__ import annotations
 
@@ -6,19 +6,21 @@ import json
 from pathlib import Path
 
 # Default settings
-_DEFAULT_LAYER_NAME = "17 Рельеф"
+_DEFAULT_LAYER = "17 Рельеф"
 _DEFAULT_STEP = 0.5
-_SETTINGS_PATH: Path | None = None
+_DEFAULT_BOTTOM_OFFSET = 0.0
+_DEFAULT_USE_MID_LENGTH = False
+_DEFAULT_MID_RATIO = 0.5
+_DEFAULT_MID_LENGTH = 1.0
 
-_MODE_NAMES = ("Только длинные", "Чередование")
+_SETTINGS_PATH: Path | None = None
 
 
 def _get_settings_path() -> Path:
     global _SETTINGS_PATH
     if _SETTINGS_PATH is None:
         from igi_tools.paths import get_resources_dir
-
-        _SETTINGS_PATH = get_resources_dir() / "slope_hatch_settings.json"
+        _SETTINGS_PATH = get_resources_dir() / "slope_settings.json"
     return _SETTINGS_PATH
 
 
@@ -37,4 +39,4 @@ def _save_settings(data: dict) -> None:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception:
-        pass  # non-critical
+        pass

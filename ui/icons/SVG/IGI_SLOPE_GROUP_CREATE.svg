@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- IGI_SLOPE_GROUP_CREATE: верхний контур, нижний контур, штрихи, плюс -->
+  <defs>
+    <style>
+      .dash { stroke: #82D99F; stroke-width: 1.0; fill: none; stroke-dasharray: 2,2; stroke-linecap: round; }
+      .plus { stroke: #82D99F; stroke-width: 1.8; fill: none; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <!-- Верхний контур (полилиния) -->
+  <polyline class="dash" points="4,8 12,6 20,10 28,7"/>
+
+  <!-- Нижний контур (полилиния) -->
+  <polyline class="dash" points="5,24 13,22 21,26 28,23"/>
+
+  <!-- Штрихи (пунктирные линии между контурами) -->
+  <line class="dash" x1="7"  y1="10" x2="8"  y2="22"/>
+  <line class="dash" x1="14" y1="8"  x2="15" y2="21"/>
+  <line class="dash" x1="22" y1="11" x2="23" y2="25"/>
+
+  <!-- Иконка плюса в правом нижнем углу, обозначающая "создать" -->
+  <line class="plus" x1="26" y1="14" x2="26" y2="20"/>
+  <line class="plus" x1="23" y1="17" x2="29" y2="17"/>
+</svg>

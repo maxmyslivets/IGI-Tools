@@ -118,9 +118,10 @@ def map_tiles() -> None:
         print(f"\n  Выбран тайловый сервер: {provider_name}")
         print(f"  Прямоугольная область: {bbox}")
 
-        # ── Шаг 3: Максимальный зум провайдера ──
-        zoom = provider_match.max_zoom
-        print(f"\n[IGI Map Tiles] Используется макс. зум провайдера: {zoom}")
+        # ── Шаг 3: Зум тайлов (выбранный пользователем или макс.) ──
+        zoom = map_data.get("zoom", provider_match.max_zoom)
+        zoom = min(zoom, provider_match.max_zoom)
+        print(f"\n[IGI Map Tiles] Зум тайлов: {zoom} (макс. провайдера: {provider_match.max_zoom})")
 
         tile_coords = get_tiles_in_bbox(
             bbox[0], bbox[1], bbox[2], bbox[3], zoom

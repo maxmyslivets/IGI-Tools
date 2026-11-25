@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Редактирование откоса">
+  <title>IGI_SLOPE_EDIT — Редактирование откоса</title>
+  <defs><mask id="cut-igi-slope-edit" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32"><rect width="32" height="32" fill="#fff"/><circle cx="24" cy="24" r="7.6" fill="#000"/></mask></defs>
+  <g mask="url(#cut-igi-slope-edit)">
+    <path d="M 3,10 L 11,6 L 20,11 L 29,7" fill="none" stroke="#D9D9D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 3,23 L 11,19 L 20,24 L 29,20" fill="none" stroke="#D9D9D9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 7,8 L 7,21" fill="none" stroke="#FFD580" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M 11.5,6.3 L 11.5,19.3" fill="none" stroke="#FFD580" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M 15.5,8.5 L 15.5,21.5" fill="none" stroke="#FFD580" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M 20.5,10.8 L 20.5,23.8" fill="none" stroke="#FFD580" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M 25,8.8 L 25,21.8" fill="none" stroke="#FFD580" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(24 24)">
+    <path d="M -3.5,3.5 L -3.5,-1 L 0.5,-5 L 4.5,-1 L 0.5,3.5 Z" fill="none" stroke="#FFD580" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 0.5,-5 L 4.5,-1" fill="none" stroke="#FFD580" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+</svg>

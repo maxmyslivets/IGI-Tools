@@ -207,10 +207,13 @@ _LEAFLET_HTML = r"""<!DOCTYPE html>
 </div>
 
 <div id="toolPanel">
-  <!-- Navigation (top group) -->
-  <button id="zoomInBtn" title="Приблизить"><svg viewBox="0 0 32 32" width="20" height="20"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M 21,21 L 28,28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M 10,14 L 18,14 M 14,10 L 14,18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-  <button id="zoomOutBtn" title="Отдалить"><svg viewBox="0 0 32 32" width="20" height="20"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M 21,21 L 28,28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M 10,14 L 18,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <!-- Navigation -->
   <button id="fitBtn" title="Показать все"><svg viewBox="0 0 32 32" width="20" height="20"><path d="M 5,5 L 11,5 L 11,7 L 7,7 L 7,11 L 5,11 Z" fill="currentColor"/><path d="M 21,5 L 27,5 L 27,11 L 25,11 L 25,7 L 21,7 Z" fill="currentColor"/><path d="M 5,21 L 7,21 L 7,25 L 11,25 L 11,27 L 5,27 Z" fill="currentColor"/><path d="M 21,27 L 27,27 L 27,21 L 25,21 L 25,25 L 21,25 Z" fill="currentColor"/></svg></button>
+  <div class="sep"></div>
+  <!-- Tile zoom level selector -->
+<button id="zoomDownBtn" title="Уменьшить зум (−1)"><svg viewBox="0 0 32 32" width="20" height="20"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M 21,21 L 28,28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M 10,14 L 18,14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <span id="zoomValue" style="font-size:14px;font-weight:bold;color:#ecf0f1;width:36px;text-align:center;line-height:36px;cursor:default;" title="Текущий зум карты и тайлов">7</span>
+<button id="zoomUpBtn" title="Увеличить зум (+1)"><svg viewBox="0 0 32 32" width="20" height="20"><circle cx="14" cy="14" r="9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M 21,21 L 28,28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M 10,14 L 18,14 M 14,10 L 14,18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
   <div class="sep"></div>
   <!-- Drawing tools (bottom group) -->
   <button id="drawBtn" title="Прямоугольная область"><svg viewBox="0 0 32 32" width="20" height="20"><rect x="4" y="4" width="24" height="24" rx="1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M 4,4 L 28,28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3,3" stroke-linecap="round"/></svg></button>
@@ -229,6 +232,7 @@ var tileLayer = null;
 var map = null;
 var drawLayer = L.featureGroup();
 var zoomBeforeDraw = 7;
+var tileZoom = 7;   // синхронизируется с zoom карты после инициализации
 
 var isDrawing = false;
 var rectangle = null;          // L.Rectangle
@@ -236,6 +240,11 @@ var cornerMarkers = [];        // [L.Marker] — 4 угла
 var cornerPoints = null;       // { nw, ne, se, sw }
 var firstCornerPt = null;
 var previewRect = null;
+
+// ---- Move (drag whole rectangle) state ----
+var isMoving = false;
+var moveStartLatLng = null;
+var _savedDragPoints = null;
 
 // ---- Geodesic area (Earth authalic sphere) ----
 function geodesicArea(latlngs) {
@@ -251,6 +260,30 @@ function geodesicArea(latlngs) {
     return Math.abs(area * R * R / 2 * Math.PI / 180);
 }
 
+// ---- Tile count estimate ----
+function estimateTileInfo() {
+    if (!cornerPoints) return null;
+    var n = 1 << tileZoom;
+    var minLon = cornerPoints.nw.lng;
+    var maxLon = cornerPoints.ne.lng;
+    var maxLat = cornerPoints.nw.lat;
+    var minLat = cornerPoints.se.lat;
+    // Slippy Map tile X from lon
+    var xMin = Math.floor((minLon + 180) / 360 * n);
+    var xMax = Math.floor((maxLon + 180) / 360 * n);
+    // Slippy Map tile Y from lat (Web Mercator)
+    function latToTileY(lat) {
+        return Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
+    }
+    var yMin = latToTileY(maxLat);
+    var yMax = latToTileY(minLat);
+    var cols = Math.max(0, xMax - xMin + 1);
+    var rows = Math.max(0, yMax - yMin + 1);
+    var count = cols * rows;
+    var sizeMB = (count * 0.07).toFixed(1);  // ~70 KB per JPEG tile
+    return { count: count, sizeMB: sizeMB };
+}
+
 // ---- Map init ----
 map = L.map('map', {
     center: [53.9, 27.57],
@@ -263,6 +296,15 @@ tileLayer = L.tileLayer('https://mt.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=ru
     attribution: '\u00a9 Google',
     tms: false
 }).addTo(map);
+
+// ---- Синхронизация zoom карты и zoom тайлов ----
+tileZoom = map.getZoom();
+document.getElementById('zoomValue').textContent = tileZoom;
+map.on('zoomend', function() {
+    tileZoom = map.getZoom();
+    document.getElementById('zoomValue').textContent = tileZoom;
+    updateStatus();
+});
 
 // ---- Drawing ----
 var _dragAnchor = null; // противоположный угол при перетаскивании
@@ -279,9 +321,21 @@ function toggleDrawMode() {
 }
 
 function startDrawing() {
-    isDrawing = true;
-    firstCornerPt = null;
+    disableMoveMode();
+    // Удалить предыдущий полигон, если есть
+    if (rectangle) {
+        if (drawLayer.hasLayer(rectangle)) drawLayer.removeLayer(rectangle);
+        rectangle = null;
+    }
+    clearCornerMarkers();
+    cornerPoints = null;
+    if (previewRect && drawLayer.hasLayer(previewRect)) {
+        drawLayer.removeLayer(previewRect);
+    }
     previewRect = null;
+    firstCornerPt = null;
+
+    isDrawing = true;
     zoomBeforeDraw = map.getZoom();
     map.getContainer().style.cursor = 'crosshair';
     map.on('click', onRectClick);
@@ -359,6 +413,7 @@ function finishRectangle(corner1, corner2) {
     createCornerMarkers();
     document.getElementById('drawBtn').classList.remove('active');
     updateStatus();
+    enableMoveMode();
 }
 
 function createCornerMarkers() {
@@ -419,10 +474,78 @@ function onCornerDrag(e) {
     updateStatus();
 }
 
+// ---- Move rectangle (drag whole polygon) ----
+function enableMoveMode() {
+    if (!rectangle) return;
+    _savedDragPoints = null;
+    rectangle.off('mousedown', onRectDragStart);
+    rectangle.on('mousedown', onRectDragStart);
+    rectangle.setStyle({ cursor: 'grab' });
+}
+
+function disableMoveMode() {
+    if (!rectangle) return;
+    rectangle.off('mousedown', onRectDragStart);
+    rectangle.setStyle({ cursor: '' });
+    isMoving = false;
+    _savedDragPoints = null;
+    map.off('mousemove', onRectDragMove);
+    map.off('mouseup', onRectDragEndGlobal);
+    try { map.dragging.enable(); } catch(e) {}
+}
+
+function onRectDragStart(e) {
+    L.DomEvent.stopPropagation(e.originalEvent);
+    // Отключаем панорамирование карты — только ЛКМ конфликтует
+    try { map.dragging.disable(); } catch(ex) {}
+    isMoving = true;
+    moveStartLatLng = e.latlng;
+    _savedDragPoints = {};
+    CORNER_KEYS.forEach(function(key) {
+        _savedDragPoints[key] = L.latLng(cornerPoints[key].lat, cornerPoints[key].lng);
+    });
+    map.on('mousemove', onRectDragMove);
+    map.on('mouseup', onRectDragEndGlobal);
+    rectangle.setStyle({ cursor: 'grabbing' });
+    L.DomEvent.preventDefault(e.originalEvent);
+}
+
+function onRectDragMove(e) {
+    if (!isMoving || !_savedDragPoints) return;
+    var latDiff = e.latlng.lat - moveStartLatLng.lat;
+    var lngDiff = e.latlng.lng - moveStartLatLng.lng;
+    CORNER_KEYS.forEach(function(key) {
+        cornerPoints[key] = L.latLng(
+            _savedDragPoints[key].lat + latDiff,
+            _savedDragPoints[key].lng + lngDiff
+        );
+    });
+    rectangle.setBounds([cornerPoints.se, cornerPoints.nw]);
+    cornerMarkers.forEach(function(m) {
+        m.setLatLng(cornerPoints[m._cornerKey]);
+    });
+    updateStatus();
+}
+
+function onRectDragEndGlobal(e) {
+    if (!isMoving) return;
+    isMoving = false;
+    CORNER_KEYS.forEach(function(key) {
+        _savedDragPoints[key] = L.latLng(cornerPoints[key].lat, cornerPoints[key].lng);
+    });
+    map.off('mousemove', onRectDragMove);
+    map.off('mouseup', onRectDragEndGlobal);
+    rectangle.setStyle({ cursor: 'grab' });
+    try { map.dragging.enable(); } catch(e) {}
+}
+
 // ---- Clear ----
 function onClear() {
-    if (rectangle && drawLayer.hasLayer(rectangle)) {
-        drawLayer.removeLayer(rectangle);
+    disableMoveMode();
+    if (rectangle) {
+        if (drawLayer.hasLayer(rectangle)) {
+            drawLayer.removeLayer(rectangle);
+        }
     }
     rectangle = null;
     clearCornerMarkers();
@@ -441,7 +564,7 @@ function onClear() {
     setStatus('Очищено');
 }
 
-// ---- Area and status ----
+// ---- Area ----
 function getTotalArea() {
     if (!rectangle) return 0;
     var latlngs = [
@@ -469,9 +592,11 @@ function getRectCoords() {
 }
 
 function updateStatus() {
-    var area = getTotalArea();
-    var areaHa = (area / 10000).toFixed(2);
-    var text = area > 0 ? ('S = ' + areaHa + ' \u0433\u0430') : '';
+    var info = estimateTileInfo();
+    var text = '';
+    if (info && info.count > 0) {
+        text = info.count + ' \u0442\u0430\u0439\u043b\u043e\u0432, ~' + info.sizeMB + ' \u041c\u0411';
+    }
     setStatus(text);
 }
 
@@ -508,7 +633,7 @@ function onFinish() {
             max_lon: bounds.getNorthEast().lng,
         },
         total_area_sqm: totalArea,
-        zoom: zoomBeforeDraw,
+        zoom: tileZoom,
     });
     try { document.title = 'MAP_RESULT:' + result; } catch(e) {}
 }
@@ -635,9 +760,17 @@ document.getElementById('searchInput').addEventListener('keydown', function(e) {
         doSearch();
     }
 });
-document.getElementById('zoomInBtn').addEventListener('click', function() { map.zoomIn(); });
-document.getElementById('zoomOutBtn').addEventListener('click', function() { map.zoomOut(); });
 document.getElementById('fitBtn').addEventListener('click', onFit);
+
+// ---- Tile zoom controls ----
+document.getElementById('zoomUpBtn').addEventListener('click', function() {
+    map.setZoom(map.getZoom() + 1);
+});
+document.getElementById('zoomDownBtn').addEventListener('click', function() {
+    map.setZoom(map.getZoom() - 1);
+});
+
+
 
 // Close search results when clicking outside
 document.addEventListener('click', function(e) {
@@ -806,7 +939,7 @@ class MapDialog(wx.Dialog):
                     wx.CallAfter(self._show_error, "Провайдер не найден")
                     return
 
-                zoom = provider_match.max_zoom
+                zoom = min(data.get("zoom", provider_match.max_zoom), provider_match.max_zoom)
                 min_lon = bbox.get("min_lon")
                 min_lat = bbox.get("min_lat")
                 max_lon = bbox.get("max_lon")
